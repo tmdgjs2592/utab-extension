@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Utab",
+  "version": "1.0.0",
+  "permissions": [
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Offset Overlay"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>",
+        "file:///"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
