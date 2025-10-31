@@ -18,12 +18,27 @@
     {
       "matches": [
         "<all_urls>",
-        "file:///"
+        "file://*/*"
       ],
       "js": [
         "content.js"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     }
-  ]
+  ],
+  "commands": {
+    "utab-jump-mode-plus": {
+      "suggested_key": {
+        "mac": "Ctrl+U"
+      },
+      "description": "Enter jump mode minus"
+    },
+    "utab-jump-mode-minus": {
+      "suggested_key": {
+        "mac": "Ctrl+I"
+      },
+      "description": "Enter jump mode plus"
+    }
+  }
 }

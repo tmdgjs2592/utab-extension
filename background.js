@@ -1,3 +1,36 @@
+chrome.commands.onCommand.addListener((cmd) => {
+  if (cmd === "utab-jump-mode-plus" || cmd === "utab-jump-mode-minus") {
+    // Ask the current page to start listening for digits
+    const cmds = cmd.split("-");
+    const symb = cmds[cmds.length -1];
+    const message = "UTAB_ENTER_JUMP_MODE_" + symb.toUpperCase();
+    chrome.tabs.query({ active: true, currentWindow: true })
+      .then(([tab]) => tab && chrome.tabs.sendMessage(tab.id, { type: message}));
+  }
+});
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === "UTAB_JUMP_BY" && Number.isInteger(msg.offset)) {
+    jumpByOffset(msg.offset).then(() => sendResponse({ ok: true }))
+      .catch(e => sendResponse({ ok: false, err: String(e) }));
+    return true; // async
+  }
+});
+
+async function jumpByOffset(offset){
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  if (!tabs.length) return;
+
+  const cur = tabs.findIndex(t=> t.active);
+  let next = cur + offset;
+  if (next >= tabs.length || next < 0) return;
+
+  const target = tabs[next];
+  if (target?.id) {
+    await chrome.tabs.update(target.id, {active: true});
+  }
+}
+
 // Recompute whenever tab order/active changes or a page finishes loading
 [
   chrome.tabs.onActivated,
@@ -66,7 +99,7 @@ async function composeIcon(faviconHref, text, size, badgeColor = "#1e824c") {
 
   // Badge geometry
   const pad = Math.max(1, Math.round(size * 0.08));
-  const fontPx = Math.max(8, Math.floor(size * 0.55));
+  const fontPx = 16; //Math.max(8, Math.floor(size * 0.55));
   ctx.font = `bold ${fontPx}px system-ui, -apple-system, Segoe UI, Arial`;
   ctx.textBaseline = "middle";
 
@@ -80,7 +113,7 @@ async function composeIcon(faviconHref, text, size, badgeColor = "#1e824c") {
   const y = size - badgeH - 1;
 
   roundRect(ctx, x, y, badgeW, badgeH);
-  ctx.fillStyle = "#1e824c";
+  ctx.fillStyle = badgeColor;
   ctx.fill();
 
   ctx.fillStyle = "#fff";
@@ -95,6 +128,6 @@ async function composeIcon(faviconHref, text, size, badgeColor = "#1e824c") {
 
 function roundRect(ctx, x, y, w, h) {
   ctx.beginPath();
-  ctx.arc(x+w/1.5, y+h/1.5, w/2.5, 0, 2 * Math.PI);
+  ctx.arc(x+w/1.5, y+h/1.5, w/2.3, 0, 2 * Math.PI);
   ctx.closePath();
 }

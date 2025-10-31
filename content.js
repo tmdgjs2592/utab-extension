@@ -1,19 +1,53 @@
 let lastDataUrl = null;
 let lastPrefixText = "";
 let originalIcons = []; // store originals so we can restore
-const preferSize = 32;  // good balance for most favicons
+let jumpMode = false;
+let neg = false;
+let timer = null;
+const preferSize = 32; 
+
+chrome.runtime.onMessage.addListener(async (msg) =>{
+  if (!msg.type) return;
+  if (msg?.type === "UTAB_ENTER_JUMP_MODE_PLUS" || msg?.type === "UTAB_ENTER_JUMP_MODE_MINUS") {
+    neg = msg.type.endsWith("MINUS");
+    jumpMode = true;
+    clearTimeout(timer);
+    timer = setTimeout(() => exitMode(), 2500); // auto-exit after 2.5s
+  }
+  
+  else if(msg?.type === "OFFSET"){
+    handleOffset(msg.offset).catch(() => {});
+  }
+})
+
+// Listen for keydown when in jump mode
+window.addEventListener("keydown", (e) => {
+  if(!jumpMode) return;
+  if (/^[1-9]$/.test(e.key)){
+    const offset = neg? +parseInt(e.key): -parseInt(e.key);
+    chrome.runtime.sendMessage({ type: "UTAB_JUMP_BY", offset});
+    exitMode();
+  } else if (e.key === "Escape"){
+    exitMode();
+  }
+});
+
+function exitMode(){
+  jumpMode = false;
+  neg = false;
+  clearTimeout(timer);
+}
 
 // Listen for offset from background
-chrome.runtime.onMessage.addListener(async (msg) => {
-  if (msg?.type !== "OFFSET") return;
+async function handleOffset(offset){
 
-  const text = formatOffset(msg.offset);
+  const text = formatOffset(offset);
   lastPrefixText = text;
 
   const href = getBestFaviconHref();
   if (!href) return;
 
-  const badgeColor = msg.offset === 0 ? "#555"  : (msg.offset > 0 ? "#1e824c" : "#b25a00");
+  const badgeColor = offset === 0 ? "#555"  : (offset > 0 ? "#1e824c" : "#b25a00");
 
   const { ok, dataUrl } = await chrome.runtime.sendMessage({
     type: "COMPOSE_FAVICON",
@@ -30,16 +64,7 @@ chrome.runtime.onMessage.addListener(async (msg) => {
   lastDataUrl = dataUrl;
   ensureOriginalsSaved();
   setFavicon(dataUrl);
-});
-
-// If SPA changes/replaces the icon, reapply our overlay quickly
-const headObserver = new MutationObserver(() => {
-  if (lastPrefixText && !isOurFaviconApplied()) {
-    // trigger recompute by asking background again (cheap)
-    // chrome.runtime.sendMessage({ ping: "reapply" }).catch(() => {});
-  }
-});
-headObserver.observe(document.documentElement, { subtree: true, childList: true });
+};
 
 function formatOffset(n) {
   if (n === 0) return "0";
