@@ -27,6 +27,9 @@
       "all_frames": true
     }
   ],
+  "chrome_url_overrides": {
+    "newtab": "redirect.html"
+  },
   "commands": {
     "utab-jump-mode-plus": {
       "suggested_key": {
