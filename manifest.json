@@ -3,7 +3,8 @@
   "name": "Utab",
   "version": "1.0.0",
   "permissions": [
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
