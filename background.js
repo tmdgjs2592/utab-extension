@@ -2,7 +2,7 @@ const BASE_HREF_BY_TAB = new Map();   // tabId -> original http(s) href
 const BASE_BITMAP_BY_HREF = new Map(); // href -> ImageBitmap (decoded once)
 
 const KEY_SEQUENCE = [
-  "1","2","3","4","5","6","7","8","9","0",
+  "0","1","2","3","4","5","6","7","8","9",
   "q","w","e","r","t","y","u","i","o","p",
   "a","s","d","f","g","h","j","k","l",
   "z","x","c","v","b","n","m"
@@ -58,7 +58,7 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type === "UTAB_JUMP_BY_NEG" || msg?.type === "UTAB_JUMP_BY_POS") {
     console.log("HI");
     const neg = msg.type.endsWith("NEG")? true:false;
-    const idx = KEY_INDEX[msg.offset?.toLowerCase?.() ?? ""] + 1;
+    const idx = KEY_INDEX[msg.offset?.toLowerCase?.() ?? ""];
     const offset = neg? idx: -idx;
     console.log(offset);
     jumpByOffset(offset);
@@ -160,21 +160,25 @@ function formatOffset(n) {
   return KEY_SEQUENCE[Math.abs(n)];
 }
 
-async function getBaseFaviconHref(tab) {
-  // Reuse if we already found the real base for this tab
-  if (BASE_HREF_BY_TAB.has(tab.id)) return BASE_HREF_BY_TAB.get(tab.id);
-
-  // If Chrome reports chrome://favicon... or a data: URL (our overlay),
-  // ask the page for its <link rel="icon">
+/**
+ * Function to grab corresponding favicon for the tab
+ * @param tab 
+ * @returns href
+ */
+async function getBaseFaviconHref(tab) {  
   const href = await queryPageFaviconHref(tab.id).catch(() => null);
   if (href) {
-    BASE_HREF_BY_TAB.set(tab.id, href);
     return href;
   }
 
   return null;
 }
 
+/**
+ * Grab favicon href by inspecting DOM
+ * @param tabId 
+ * @returns href
+ */
 async function queryPageFaviconHref(tabId) {
   const [{ result } = {}] = await chrome.scripting.executeScript({
     target: { tabId },
@@ -198,14 +202,15 @@ async function queryPageFaviconHref(tabId) {
   return result || null;
 }
 
-// Draw base image + bottom-right badge; fetch is allowed by host_permissions
+/**
+ * Draw base image + bottom-right badge; fetch is allowed by host_permissions
+ * Geometry is hard-coded for now, update it to dynamic setting
+ */ 
 async function composeIcon(baseHref, text, size, badgeColor = "#1e824c") {
-  // let bitmap = BASE_BITMAP_BY_HREF.get(baseHref);
   try{
-    const resp = await fetch(baseHref, { mode: "cors" });  // host_permissions required
+    const resp = await fetch(baseHref, { mode: "cors" });  // host_permissions
     const blob = await resp.blob();
     bitmap = await createImageBitmap(blob);
-    BASE_BITMAP_BY_HREF.set(baseHref, bitmap);
   } catch (e){
     console.log("Fetching for ", baseHref, "failed: ", e);
   }
@@ -223,26 +228,22 @@ async function composeIcon(baseHref, text, size, badgeColor = "#1e824c") {
   }
 
   // Badge geometry
-  const pad = Math.max(1, Math.round(size * 0.08));
-  const fontPx = 16; //Math.max(8, Math.floor(size * 0.55));
+  // TODO: let user change dynamically to their liking
+  const fontPx = 15; 
+  
+  let x = 20;
+  if(text === 'i') x+=2.5;
+  if(text === 'w') x-=1.7;
+  let y = 25.5;
   ctx.font = `bold ${fontPx}px system-ui, -apple-system, Segoe UI, Arial`;
   ctx.textBaseline = "middle";
 
-  const metrics = ctx.measureText(text);
-  const textW = metrics.width;
-  const textH = fontPx;
-
-  const badgeW = Math.ceil(textW + pad * 2);
-  const badgeH = Math.ceil(textH + pad * 0.9);
-  const x = size - badgeW - 1;
-  const y = size - badgeH - 1;
-
-  roundRect(ctx, x, y, badgeW, badgeH);
+  drawCircle(ctx);
   ctx.fillStyle = badgeColor;
   ctx.fill();
 
   ctx.fillStyle = "#fff";
-  ctx.fillText(text, x + (badgeW - textW) / 1.1, y + badgeH / 1.5);
+  ctx.fillText(text, x, y);
 
   const blob = await canvas.convertToBlob({ type: "image/png" });
   // Convert blob to data URL
@@ -251,8 +252,8 @@ async function composeIcon(baseHref, text, size, badgeColor = "#1e824c") {
   return `data:image/png;base64,${base64}`;
 }
 
-function roundRect(ctx, x, y, w, h) {
+function drawCircle(ctx) {
   ctx.beginPath();
-  ctx.arc(x+w/1.5, y+h/1.5, w/2.3, 0, 2 * Math.PI);
+  ctx.arc(24.5, 24.6, 7.4, 0, 2 * Math.PI);
   ctx.closePath();
 }

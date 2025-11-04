@@ -12,6 +12,7 @@ chrome.runtime.onMessage.addListener(async (msg) =>{
     clearTimeout(timer);
     timer = setTimeout(() => exitMode(), 2500); // auto-exit after 2.5s
   }
+  
   else if(msg.type === "OFFSET"){
     if (msg.dataUrl) setFavicon(msg.dataUrl);
   }
@@ -20,7 +21,7 @@ chrome.runtime.onMessage.addListener(async (msg) =>{
 // Listen for keydown when in jump mode
 window.addEventListener("keydown", (e) => {
   if(!jumpMode) return;
-  if (/^[0-9]$/.test(e.key)){
+  if (/^[0-9a-z]$/.test(e.key)){
     const offset = e.key;
     const sign = neg? "NEG" : "POS";
     chrome.runtime.sendMessage({ type: "UTAB_JUMP_BY_" + sign, offset});
