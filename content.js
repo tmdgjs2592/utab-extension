@@ -6,21 +6,37 @@ const preferSize = 32;
 
 chrome.runtime.onMessage.addListener(async (msg) =>{
   if (!msg.type) return;
-  if (msg.type === "UTAB_ENTER_JUMP_MODE_PLUS" || msg?.type === "UTAB_ENTER_JUMP_MODE_MINUS") {
+  /**
+   * Listen for jump mode from the background.
+   * Message contains either PLUS or MINUS jump mode.
+   * Sets the jump mode to true.
+   */
+  if (msg?.type === "UTAB_ENTER_JUMP_MODE_PLUS" || msg?.type === "UTAB_ENTER_JUMP_MODE_MINUS") {
     neg = msg.type.endsWith("MINUS");
     jumpMode = true;
     clearTimeout(timer);
     timer = setTimeout(() => exitMode(), 2500); // auto-exit after 2.5s
   }
   
+  /**
+   * Listen for favicon link and set the current tab's favicon.
+   * Message contains favicon link.
+   */
   else if(msg.type === "OFFSET"){
     if (msg.dataUrl) setFavicon(msg.dataUrl);
   }
-})
+});
 
-// Listen for keydown when in jump mode
+/**
+ * Listen for key stroke and send the information to background.
+ * Keys pressed during the jump mode do not propagate to the website.
+ */
 window.addEventListener("keydown", (e) => {
   if(!jumpMode) return;
+
+  e.preventDefault();
+  e.stopImmediatePropagation();
+
   if (/^[0-9a-z]$/.test(e.key)){
     const offset = e.key;
     const sign = neg? "NEG" : "POS";

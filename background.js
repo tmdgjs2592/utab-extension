@@ -54,13 +54,14 @@ chrome.commands.onCommand.addListener((cmd) => {
   }
 });
 
+/**
+ * Listen for offset and switch the current tab by the amount.
+ */
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type === "UTAB_JUMP_BY_NEG" || msg?.type === "UTAB_JUMP_BY_POS") {
-    console.log("HI");
-    const neg = msg.type.endsWith("NEG")? true:false;
+    const neg = msg.type.endsWith("NEG");
     const idx = KEY_INDEX[msg.offset?.toLowerCase?.() ?? ""];
     const offset = neg? idx: -idx;
-    console.log(offset);
     jumpByOffset(offset);
     return true; // async
   }
@@ -175,7 +176,7 @@ async function getBaseFaviconHref(tab) {
 }
 
 /**
- * Grab favicon href by inspecting DOM
+ * Grab favicon href by inspecting DOM.
  * @param tabId 
  * @returns href
  */
