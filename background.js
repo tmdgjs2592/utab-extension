@@ -1,20 +1,10 @@
-const BASE_HREF_BY_TAB = new Map();   // tabId -> original http(s) href
-const BASE_BITMAP_BY_HREF = new Map(); // href -> ImageBitmap (decoded once)
-
 const KEY_SEQUENCE = [
   "0","1","2","3","4","5","6","7","8","9",
   "q","w","e","r","t","y","u","i","o","p",
   "a","s","d","f","g","h","j","k","l",
   "z","x","c","v","b","n","m"
 ];
-
-// For reverse lookup
 const KEY_INDEX = Object.fromEntries(KEY_SEQUENCE.map((k, i) => [k, i]));
-
-// Clean up when a tab closes
-chrome.tabs.onRemoved.addListener((tabId) => {
-  BASE_HREF_BY_TAB.delete(tabId);
-});
 
 /**
  * Upon installed, inject content.js file to existing tabs.
@@ -123,6 +113,8 @@ async function updateAll() {
 }
 
 /**
+ * Entry point for handling offset and composing overlay icons for all tabs.
+ * Overlay icon is placed on top of the original favicon of the website.
  * @param t tab 
  * @param currentIndex index pointing to the active tab 
  * @sends to content side the formed overlay icon
@@ -137,23 +129,18 @@ async function handleOffset(t, currentIndex){
   }
 
   const offset = (typeof t.index === "number" ? t.index: 0) - currentIndex;
-  const baseHref = await getBaseFaviconHref(t).catch(() => null);
+  const baseHref = faviconURL(t.url);
 
   let dataUrl = null;
-  if(baseHref){
-    const text = formatOffset(offset);
-    const badgeColor = offset === 0 ? "#555" : (offset > 0 ? "#1e824c" : "#b25a00");
-    dataUrl = await composeIcon(baseHref, text, 32, badgeColor).catch(() => null);
-  }
-  else{
-    console.log("FAVICON not found");
-  }
+  const text = formatOffset(offset);
+  const badgeColor = offset === 0 ? "#555" : (offset > 0 ? "#1e824c" : "#b25a00");
+  dataUrl = await composeIcon(baseHref, text, 32, badgeColor).catch(()=> null);
 
   chrome.tabs.sendMessage(t.id, { type: "OFFSET", offset, dataUrl }).catch(() => {});
 }
 
 /**
- * 
+ * Format the offset into the key sequence.
  * @param n number (offset)
  * @returns corresponding key sequence
  */
@@ -162,45 +149,15 @@ function formatOffset(n) {
 }
 
 /**
- * Function to grab corresponding favicon for the tab
- * @param tab 
- * @returns href
- */
-async function getBaseFaviconHref(tab) {  
-  const href = await queryPageFaviconHref(tab.id).catch(() => null);
-  if (href) {
-    return href;
-  }
-
-  return null;
-}
-
-/**
- * Grab favicon href by inspecting DOM.
+ * Grab favicon href through fetching to chrome.
  * @param tabId 
  * @returns href
  */
-async function queryPageFaviconHref(tabId) {
-  const [{ result } = {}] = await chrome.scripting.executeScript({
-    target: { tabId },
-    func: () => {
-      try {
-        const links = [...document.querySelectorAll('link[rel~="icon"]')];
-        if (links.length === 0) return null;
-        // pick largest if sizes present
-        let best = links[0], bestSize = 0;
-        for (const l of links) {
-          const sizes = (l.getAttribute("sizes") || "").split(/\s+/)
-            .map(s => { const m = /^(\d+)x\1$/.exec(s); return m ? +m[1] : 0; });
-          const max = Math.max(0, ...sizes);
-          if (max > bestSize) { best = l; bestSize = max; }
-        }
-        const href = best.getAttribute("href") || "/favicon.ico";
-        return new URL(href, location.href).href; // absolutize
-      } catch { return null; }
-    }
-  });
-  return result || null;
+function faviconURL(u) {
+  const url = new URL(chrome.runtime.getURL('/_favicon/'));
+  url.searchParams.set('pageUrl', u);
+  url.searchParams.set('size', '32');
+  return url.toString();
 }
 
 /**
@@ -213,7 +170,7 @@ async function composeIcon(baseHref, text, size, badgeColor = "#1e824c") {
     const blob = await resp.blob();
     bitmap = await createImageBitmap(blob);
   } catch (e){
-    console.log("Fetching for ", baseHref, "failed: ", e);
+    bitmap = await loadDefaultFaviconBitmap();
   }
   
   const canvas = new OffscreenCanvas(size, size);
@@ -253,8 +210,35 @@ async function composeIcon(baseHref, text, size, badgeColor = "#1e824c") {
   return `data:image/png;base64,${base64}`;
 }
 
+/**
+ * Draw a circle for overlay icon.
+ * @param ctx canvas 
+ */
 function drawCircle(ctx) {
   ctx.beginPath();
   ctx.arc(24.5, 24.6, 7.4, 0, 2 * Math.PI);
   ctx.closePath();
+}
+
+/**
+ * Load default chrome favicon when favicon cannot be found.
+ * Default favicon is obtained by fetching to chrome with empty url.
+ * @returns bitmap of default favicon.
+ */
+async function loadDefaultFaviconBitmap() {
+  const url = chrome.runtime.getURL("");
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    throw new Error(`[UTAB] default icon fetch failed: ${resp.status} ${resp.statusText}`);
+  }
+
+  const blob = await resp.blob();
+  try {
+    const bmp = await createImageBitmap(blob);
+    console.log("[UTAB] bitmap:", bmp.width, bmp.height);
+    return bmp;
+  } catch (e) {
+    console.error("[UTAB] createImageBitmap failed:", e);
+    throw e;
+  }
 }

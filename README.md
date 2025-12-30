@@ -17,5 +17,3 @@ z x c v b n m
 
 ### UPCOMINGS
 - Option page to give users more flexibility in terms of shortcuts and offset icons.
-- Accurate favicon display for each tab.
-- Upon clicking one of the shortcuts, apply a similar function as clicking the Escape key, where users get out of any modes they were in, such as typing or clicking.

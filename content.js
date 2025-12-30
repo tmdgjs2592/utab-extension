@@ -23,6 +23,7 @@ chrome.runtime.onMessage.addListener(async (msg) =>{
    * Message contains favicon link.
    */
   else if(msg.type === "OFFSET"){
+    console.log(msg);
     if (msg.dataUrl) setFavicon(msg.dataUrl);
   }
 });
@@ -47,16 +48,22 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+/**
+ * Exit jump mode by turning the jump mode off.
+ */
 function exitMode(){
   jumpMode = false;
   neg = false;
   clearTimeout(timer);
 }
 
+/**
+ * Switch the favicon of the tab through DOM.
+ * @param href favicon with overlay url
+ */
 function setFavicon(href) {
-  // Remove existing icons
   document.querySelectorAll('link[rel~="icon"]').forEach(el => el.remove());
-  // Add our icon
+
   const link = document.createElement("link");
   link.rel = "icon";
   link.type = "image/png";
