@@ -1,4 +1,4 @@
-# Utab
+# <img src="img/UTAB_logo_cropped.png" width="75" height="75">
 Productivity boost feature to enhance tab movements. Using the shortcut and observing the relative offset, users are able to switch to 5
 
 ## Commands
