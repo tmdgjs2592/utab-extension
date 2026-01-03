@@ -23,7 +23,6 @@ chrome.runtime.onMessage.addListener(async (msg) =>{
    * Message contains favicon link.
    */
   else if(msg.type === "OFFSET"){
-    console.log(msg);
     if (msg.dataUrl) setFavicon(msg.dataUrl);
   }
 });
