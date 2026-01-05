@@ -11,8 +11,8 @@ chrome.runtime.onMessage.addListener(async (msg) =>{
    * Message contains either PLUS or MINUS jump mode.
    * Sets the jump mode to true.
    */
-  if (msg?.type === "UTAB_ENTER_JUMP_MODE_PLUS" || msg?.type === "UTAB_ENTER_JUMP_MODE_MINUS") {
-    neg = msg.type.endsWith("MINUS");
+  if (msg?.type === "UTAB_JUMP_MODE") {
+    neg = msg.neg;
     jumpMode = true;
     clearTimeout(timer);
     timer = setTimeout(() => exitMode(), 2500); // auto-exit after 2.5s
@@ -39,8 +39,7 @@ window.addEventListener("keydown", (e) => {
 
   if (/^[0-9a-z]$/.test(e.key)){
     const offset = e.key;
-    const sign = neg? "NEG" : "POS";
-    chrome.runtime.sendMessage({ type: "UTAB_JUMP_BY_" + sign, offset});
+    chrome.runtime.sendMessage({ type: "UTAB_JUMP", offset, neg});
     exitMode();
   } else if (e.key === "Escape"){
     exitMode();

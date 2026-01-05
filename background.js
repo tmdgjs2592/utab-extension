@@ -5,6 +5,10 @@ const KEY_SEQUENCE = [
   "z","x","c","v","b","n","m"
 ];
 const KEY_INDEX = Object.fromEntries(KEY_SEQUENCE.map((k, i) => [k, i]));
+let local = false;
+let local_str = "file:///";
+let jumpWinId = null;
+let neg = false;
 
 /**
  * Upon installed, inject content.js file to existing tabs.
@@ -33,14 +37,38 @@ chrome.runtime.onInstalled.addListener(async () => {
  * Parse for the direction and send the message to the tab.
  * @cmd comes from the shortcut (Ctrl + U/I).
  */
-chrome.commands.onCommand.addListener((cmd) => {
+chrome.commands.onCommand.addListener(async (cmd) => {
   if (cmd === "utab-jump-mode-plus" || cmd === "utab-jump-mode-minus") {
-    // Ask the current page to start listening for digits
-    const cmds = cmd.split("-");
-    const symb = cmds[cmds.length -1];
-    const message = "UTAB_ENTER_JUMP_MODE_" + symb.toUpperCase();
-    chrome.tabs.query({ active: true, currentWindow: true })
-      .then(([tab]) => tab && chrome.tabs.sendMessage(tab.id, { type: message}));
+    neg = cmd.endsWith("minus");
+    if(!local){
+      // Ask the current page to start listening for digits
+      const message = "UTAB_JUMP_MODE";
+      chrome.tabs.query({ active: true, currentWindow: true })
+        .then(([tab]) => tab && chrome.tabs.sendMessage(tab.id, { type: message, neg: neg}));
+    }
+    else{
+      const w = await chrome.windows.create({
+        url: chrome.runtime.getURL("keycap.html"),
+        type: "popup",
+        focused: true,
+        width: 260,
+        height: 90,
+        left: 20,
+        top: 20
+      });
+
+      jumpWinId = w.id;
+
+      if (jumpWinId != null) {
+        try {
+          await chrome.windows.update(jumpWinId, { focused: true });
+          chrome.runtime.sendMessage({ type: "PANEL_ARM"}).catch(() => {});
+          return;
+        } catch {
+          jumpWinId = null;
+        }
+      }
+    }
   }
 });
 
@@ -48,8 +76,7 @@ chrome.commands.onCommand.addListener((cmd) => {
  * Listen for offset and switch the current tab by the amount.
  */
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg?.type === "UTAB_JUMP_BY_NEG" || msg?.type === "UTAB_JUMP_BY_POS") {
-    const neg = msg.type.endsWith("NEG");
+  if (msg?.type === "UTAB_JUMP") {
     const idx = KEY_INDEX[msg.offset?.toLowerCase?.() ?? ""];
     const offset = neg? idx: -idx;
     jumpByOffset(offset);
@@ -107,6 +134,8 @@ async function updateAll() {
   const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!active) return;
   const currentIndex = active.index;
+  if (active.url.startsWith(local_str)) local = true;
+  else local = false;
   const tabs = await chrome.tabs.query({ currentWindow: true });
 
   await Promise.all(tabs.map(t => handleOffset(t, currentIndex)));
