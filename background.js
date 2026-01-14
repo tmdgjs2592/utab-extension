@@ -39,7 +39,14 @@ chrome.runtime.onInstalled.addListener(async () => {
  */
 chrome.commands.onCommand.addListener(async (cmd) => {
   if (cmd === "utab-jump-mode-plus" || cmd === "utab-jump-mode-minus") {
+
     neg = cmd.endsWith("minus");
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab.id || !tab.url) return;
+    if (/^(chrome|edge|about|chrome-extension):/i.test(tab.url)) return;
+
     if(!local){
       // Ask the current page to start listening for digits
       const message = "UTAB_JUMP_MODE";
@@ -194,6 +201,7 @@ function faviconURL(u) {
  * Geometry is hard-coded for now, update it to dynamic setting
  */ 
 async function composeIcon(baseHref, text, size, badgeColor = "#1e824c") {
+  let bitmap = null;
   try{
     const resp = await fetch(baseHref, { mode: "cors" });  // host_permissions
     const blob = await resp.blob();
