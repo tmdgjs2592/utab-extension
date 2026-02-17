@@ -9,6 +9,7 @@ let local = false;
 let local_str = "file:///";
 let jumpWinId = null;
 let neg = false;
+let last_tab = false;
 
 /**
  * Upon installed, inject content.js file to existing tabs.
@@ -77,6 +78,11 @@ chrome.commands.onCommand.addListener(async (cmd) => {
       }
     }
   }
+  else if (cmd === "utab-jump-back"){
+    const [temp] = await chrome.tabs.query({ active: true, currentWindow: true });
+    await chrome.tabs.update(last_tab, {active: true});
+    last_tab = temp.id;
+  }
 });
 
 /**
@@ -106,6 +112,7 @@ async function jumpByOffset(offset){
 
   const target = tabs[next];
   if (target?.id) {
+    last_tab = tabs[cur].id;
     await chrome.tabs.update(target.id, {active: true});
   }
 }

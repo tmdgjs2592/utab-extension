@@ -46,6 +46,13 @@
         "windows": "Alt+I"
       },
       "description": "Enter jump mode plus"
+    },
+    "utab-jump-back": {
+      "suggested_key": {
+        "mac": "Ctrl+B",
+        "windows": "Alt+B"
+      },
+      "description": "Enter jump mode plus"
     }
   }
 }
