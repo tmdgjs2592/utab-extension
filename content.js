@@ -1,6 +1,7 @@
 let lastDataUrl = null;
 let jumpMode = false;
 let neg = false;
+let prevFocus = null;
 let timer = null;
 const preferSize = 32; 
 
@@ -13,6 +14,8 @@ chrome.runtime.onMessage.addListener(async (msg) =>{
    */
   if (msg?.type === "UTAB_JUMP_MODE") {
     neg = msg.neg;
+    prevFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    stealFocusFromPageControls();
     jumpMode = true;
     clearTimeout(timer);
     timer = setTimeout(() => exitMode(), 2500); // auto-exit after 2.5s
@@ -34,9 +37,6 @@ chrome.runtime.onMessage.addListener(async (msg) =>{
 window.addEventListener("keydown", (e) => {
   if(!jumpMode) return;
 
-  e.preventDefault();
-  e.stopImmediatePropagation();
-
   if (/^[0-9a-z]$/.test(e.key)){
     const offset = e.key;
     chrome.runtime.sendMessage({ type: "UTAB_JUMP", offset, neg});
@@ -53,6 +53,7 @@ function exitMode(){
   jumpMode = false;
   neg = false;
   clearTimeout(timer);
+  restoreFocus();
 }
 
 /**
@@ -67,4 +68,38 @@ function setFavicon(href) {
   link.type = "image/png";
   link.href = href;
   document.head.appendChild(link);
+}
+
+/**
+ * Enable keystroke listener through focusing out of the editing field.
+ */
+function stealFocusFromPageControls() {
+  const ae = document.activeElement;
+
+  // Blur common editable targets
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) {
+    ae.blur?.();
+  }
+
+  // Temporary focusable element 
+  const trap = document.createElement("div");
+  trap.tabIndex = -1;
+  trap.setAttribute("aria-hidden", "true");
+  trap.style.cssText = "position:fixed; width:1px; height:1px; left:-9999px; top:-9999px;";
+  document.documentElement.appendChild(trap);
+  trap.focus({ preventScroll: true });
+
+  // Cleanup
+  queueMicrotask(() => trap.remove());
+}
+
+/**
+ * Focus what the user was editing before jump mode
+ */
+function restoreFocus() {
+  
+  if (prevFocus && prevFocus.isConnected) {
+    prevFocus.focus({ preventScroll: true });
+  }
+  prevFocus = null;
 }
