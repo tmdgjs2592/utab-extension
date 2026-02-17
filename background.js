@@ -5,8 +5,6 @@ const KEY_SEQUENCE = [
   "z","x","c","v","b","n","m"
 ];
 const KEY_INDEX = Object.fromEntries(KEY_SEQUENCE.map((k, i) => [k, i]));
-let local = false;
-let local_str = "file:///";
 let jumpWinId = null;
 let neg = false;
 let last_tab = false;
@@ -48,35 +46,10 @@ chrome.commands.onCommand.addListener(async (cmd) => {
     if (!tab.id || !tab.url) return;
     if (/^(chrome|edge|about|chrome-extension):/i.test(tab.url)) return;
 
-    if(!local){
-      // Ask the current page to start listening for digits
-      const message = "UTAB_JUMP_MODE";
-      chrome.tabs.query({ active: true, currentWindow: true })
-        .then(([tab]) => tab && chrome.tabs.sendMessage(tab.id, { type: message, neg: neg}));
-    }
-    else{
-      const w = await chrome.windows.create({
-        url: chrome.runtime.getURL("keycap.html"),
-        type: "popup",
-        focused: true,
-        width: 260,
-        height: 90,
-        left: 20,
-        top: 20
-      });
-
-      jumpWinId = w.id;
-
-      if (jumpWinId != null) {
-        try {
-          await chrome.windows.update(jumpWinId, { focused: true });
-          chrome.runtime.sendMessage({ type: "PANEL_ARM"}).catch(() => {});
-          return;
-        } catch {
-          jumpWinId = null;
-        }
-      }
-    }
+    // Ask the current page to start listening for digits
+    const message = "UTAB_JUMP_MODE";
+    chrome.tabs.query({ active: true, currentWindow: true })
+      .then(([tab]) => tab && chrome.tabs.sendMessage(tab.id, { type: message, neg: neg}));
   }
   else if (cmd === "utab-jump-back"){
     const [temp] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -148,8 +121,6 @@ async function updateAll() {
   const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!active) return;
   const currentIndex = active.index;
-  if (active.url.startsWith(local_str)) local = true;
-  else local = false;
   const tabs = await chrome.tabs.query({ currentWindow: true });
 
   await Promise.all(tabs.map(t => handleOffset(t, currentIndex)));
