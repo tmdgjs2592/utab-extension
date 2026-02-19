@@ -5,6 +5,8 @@ const KEY_SEQUENCE = [
   "z","x","c","v","b","n","m"
 ];
 const KEY_INDEX = Object.fromEntries(KEY_SEQUENCE.map((k, i) => [k, i]));
+
+let favicon_cache = new Map();
 let jumpWinId = null;
 let neg = false;
 let last_tab = false;
@@ -182,7 +184,7 @@ function faviconURL(u) {
   const url = new URL(chrome.runtime.getURL('/_favicon/'));
   url.searchParams.set('pageUrl', u);
   url.searchParams.set('size', '32');
-  return url.toString();
+  return url;
 }
 
 /**
@@ -191,13 +193,23 @@ function faviconURL(u) {
  */ 
 async function composeIcon(baseHref, text, size, badgeColor = "#1e824c") {
   let bitmap = null;
-  try{
-    const resp = await fetch(baseHref, { mode: "cors" });  // host_permissions
-    const blob = await resp.blob();
-    bitmap = await createImageBitmap(blob);
-  } catch (e){
-    bitmap = await loadDefaultFaviconBitmap();
+  const pageUrl = baseHref.searchParams.get('pageUrl');
+  const origin = new URL(pageUrl).origin;
+
+  if (favicon_cache.has(origin)){
+    bitmap = favicon_cache.get(origin);
   }
+  else{
+    try{
+      const resp = await fetch(baseHref.toString(), { mode: "cors" });  // host_permissions
+      const blob = await resp.blob();
+      bitmap = await createImageBitmap(blob);
+      favicon_cache.set(origin, bitmap);
+    } catch (e){
+      bitmap = await loadDefaultFaviconBitmap();
+    }
+  }
+  
   
   const canvas = new OffscreenCanvas(size, size);
   const ctx = canvas.getContext("2d");
