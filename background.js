@@ -143,8 +143,6 @@ async function handleOffset(t, currentIndex){
   }
 
   const offset = (typeof t.index === "number" ? t.index: 0) - currentIndex;
-  const urls = t.url.split("/");
-  const url = grabURL(urls);
   const baseHref = faviconURL(t.url);
 
   let dataUrl = null;
@@ -153,19 +151,6 @@ async function handleOffset(t, currentIndex){
   dataUrl = await composeIcon(baseHref, text, 32, badgeColor).catch(()=> null);
 
   chrome.tabs.sendMessage(t.id, { type: "OFFSET", offset, dataUrl }).catch(() => {});
-}
-
-/**
- * Grab the url, excluding url parameters to fetch for the correct favicon
- * @param urls url split on /
- * @returns current url without the url parameters
- */
-function grabURL(urls){
-  for(const url of urls){
-    if(url.endsWith("com")){
-      return url;
-    }
-  }
 }
 
 /**
