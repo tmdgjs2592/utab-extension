@@ -53,8 +53,10 @@ chrome.commands.onCommand.addListener(async (cmd) => {
   }
   else if (cmd === "utab-jump-back"){
     const [temp] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await chrome.tabs.update(last_tab, {active: true});
-    last_tab = temp.id;
+    if(last_tab != null){
+      await chrome.tabs.update(last_tab, {active: true});
+      last_tab = temp.id;
+    }
   }
 });
 
@@ -67,6 +69,15 @@ chrome.runtime.onMessage.addListener((msg) => {
     const offset = neg? idx: -idx;
     jumpByOffset(offset);
     return true; // async
+  }
+});
+
+/**
+ * Invalidate jump back feature upon removing the last tab.
+ */
+chrome.tabs.onRemoved.addListener((t) => {
+  if(t.id == last_tab){
+    last_tab = null;
   }
 });
 
