@@ -9,7 +9,7 @@ const KEY_INDEX = Object.fromEntries(KEY_SEQUENCE.map((k, i) => [k, i]));
 let favicon_cache = new Map();
 let jumpWinId = null;
 let neg = false;
-let last_tab = false;
+let last_tab = null;
 
 /**
  * Upon installed, inject content.js file to existing tabs.
@@ -77,8 +77,8 @@ chrome.runtime.onMessage.addListener((msg) => {
 /**
  * Invalidate jump back feature upon removing the last tab.
  */
-chrome.tabs.onRemoved.addListener((t) => {
-  if(t.id == last_tab){
+chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
+  if(tabId == last_tab){
     last_tab = null;
   }
 });

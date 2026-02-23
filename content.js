@@ -1,4 +1,3 @@
-let lastDataUrl = null;
 let jumpMode = false;
 let neg = false;
 let prevFocus = null;
@@ -36,6 +35,9 @@ chrome.runtime.onMessage.addListener(async (msg) =>{
  */
 window.addEventListener("keydown", (e) => {
   if(!jumpMode) return;
+
+  e.preventDefault();
+  e.stopImmediatePropagation();
 
   if (/^[0-9a-z]$/.test(e.key)){
     const offset = e.key;
