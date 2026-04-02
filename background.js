@@ -157,7 +157,7 @@ async function handleOffset(t, currentIndex){
   }
 
   const offset = (typeof t.index === "number" ? t.index: 0) - currentIndex;
-  const baseHref = t.favIconUrl? t.favIconUrl: faviconURL(t.url).toString();
+  const baseHref = faviconURL(t.url).toString();
 
   let dataUrl = null;
   const text = formatOffset(offset);
