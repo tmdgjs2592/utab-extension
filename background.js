@@ -121,10 +121,10 @@ const OFFSET_EVENTS = [
   chrome.tabs.onAttached,
   chrome.tabs.onDetached,
   chrome.tabs.onRemoved,
+  chrome.tabs.onUpdated,
   chrome.windows.onFocusChanged
 ];
 OFFSET_EVENTS.forEach(ev => ev.addListener(() => updateAll().catch(() => {})));
-
 
 /**
  * Update function that handles offset calculation for all tabs.
@@ -156,7 +156,7 @@ async function handleOffset(t, currentIndex){
   }
 
   const offset = (typeof t.index === "number" ? t.index: 0) - currentIndex;
-  const baseHref = faviconURL(t.url);
+  const baseHref = t.faviconUrl? t.faviconUrl: faviconURL(t.url);
 
   let dataUrl = null;
   const text = formatOffset(offset);
