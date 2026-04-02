@@ -6,6 +6,7 @@ const KEY_SEQUENCE = [
 ];
 const KEY_INDEX = Object.fromEntries(KEY_SEQUENCE.map((k, i) => [k, i]));
 
+let composited_icon_cache = new Map();
 let favicon_cache = new Map();
 let jumpWinId = null;
 let neg = false;
@@ -156,12 +157,12 @@ async function handleOffset(t, currentIndex){
   }
 
   const offset = (typeof t.index === "number" ? t.index: 0) - currentIndex;
-  const baseHref = t.faviconUrl? t.faviconUrl: faviconURL(t.url);
+  const baseHref = t.favIconUrl? t.favIconUrl: faviconURL(t.url).toString();
 
   let dataUrl = null;
   const text = formatOffset(offset);
   const badgeColor = offset === 0 ? "#555" : (offset > 0 ? "#1e824c" : "#b25a00");
-  dataUrl = await composeIcon(baseHref, text, 32, badgeColor).catch(()=> null);
+  dataUrl = await composeIcon(baseHref, t.url, text, 32, badgeColor).catch(()=> null);
 
   chrome.tabs.sendMessage(t.id, { type: "OFFSET", offset, dataUrl }).catch(() => {});
 }
@@ -191,11 +192,14 @@ function faviconURL(u) {
  * Draw base image + bottom-right badge; fetch is allowed by host_permissions
  * Geometry is hard-coded for now, update it to dynamic setting
  */ 
-async function composeIcon(baseHref, text, size, badgeColor = "#1e824c") {
+async function composeIcon(baseHref, pageUrl, offset, size, badgeColor = "#1e824c") {
   let bitmap = null;
-  const pageUrl = baseHref.searchParams.get('pageUrl');
   const origin = new URL(pageUrl).origin;
+  const composite = `${origin}_${offset}_${badgeColor}`;
 
+  if (composited_icon_cache.has(composite)){
+    return composited_icon_cache.get(composite);
+  }
   if (favicon_cache.has(origin)){
     bitmap = favicon_cache.get(origin);
   }
@@ -228,8 +232,8 @@ async function composeIcon(baseHref, text, size, badgeColor = "#1e824c") {
   const fontPx = 15; 
   
   let x = 20;
-  if(text === 'i') x+=2.5;
-  if(text === 'w') x-=1.7;
+  if(offset === 'i') x+=2.5;
+  if(offset === 'w') x-=1.7;
   let y = 25.5;
   ctx.font = `bold ${fontPx}px system-ui, -apple-system, Segoe UI, Arial`;
   ctx.textBaseline = "middle";
@@ -239,13 +243,15 @@ async function composeIcon(baseHref, text, size, badgeColor = "#1e824c") {
   ctx.fill();
 
   ctx.fillStyle = "#fff";
-  ctx.fillText(text, x, y);
+  ctx.fillText(offset, x, y);
 
   const blob = await canvas.convertToBlob({ type: "image/png" });
   // Convert blob to data URL
   const buf = await blob.arrayBuffer();
   const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-  return `data:image/png;base64,${base64}`;
+  const base64_link = `data:image/png;base64,${base64}`;
+  composited_icon_cache.set(composite, base64_link);
+  return base64_link;
 }
 
 /**
