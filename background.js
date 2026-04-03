@@ -67,11 +67,11 @@ chrome.commands.onCommand.addListener(async (cmd) => {
 /**
  * Listen for offset and switch the current tab by the amount.
  */
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type === "UTAB_JUMP") {
     const idx = KEY_INDEX[msg.offset?.toLowerCase?.() ?? ""];
     const offset = neg? idx: -idx;
-    jumpByOffset(offset);
+    jumpByOffset(offset, sender.tab?.windowId);
     return true; // async
   }
 });
@@ -91,8 +91,9 @@ chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
  * @param: offset
  * @result update the current tab
  */
-async function jumpByOffset(offset){
-  const tabs = await chrome.tabs.query({ currentWindow: true });
+async function jumpByOffset(offset, windowId){
+  const query = windowId !== undefined ? { windowId } : { currentWindow: true };
+  const tabs = await chrome.tabs.query(query);
   if (!tabs.length) return;
 
   const cur = tabs.findIndex(t=> t.active);
@@ -142,12 +143,14 @@ OFFSET_EVENTS.forEach(ev => ev.addListener(scheduleUpdate));
  * Async computation through Promise.all() method.
  */
 async function updateAll() {
-  const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!active) return;
-  const currentIndex = active.index;
-  const tabs = await chrome.tabs.query({ currentWindow: true });
-
-  await Promise.all(tabs.map(t => handleOffset(t, currentIndex)));
+  const windows = await chrome.windows.getAll({ populate: true });
+  for (const win of windows) {
+    if (!win.tabs) continue;
+    const activeTab = win.tabs.find(t => t.active);
+    if (!activeTab) continue;
+    const currentIndex = activeTab.index;
+    await Promise.all(win.tabs.map(t => handleOffset(t, currentIndex)));
+  }
 }
 
 /**
