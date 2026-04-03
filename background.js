@@ -8,6 +8,7 @@ const KEY_INDEX = Object.fromEntries(KEY_SEQUENCE.map((k, i) => [k, i]));
 
 let composited_icon_cache = new Map();
 let favicon_cache = new Map();
+let tab_state_cache = new Map();
 let jumpWinId = null;
 let neg = false;
 let last_tab = null;
@@ -82,6 +83,7 @@ chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
   if(tabId == last_tab){
     last_tab = null;
   }
+  tab_state_cache.delete(tabId);
 });
 
 /**
@@ -122,10 +124,18 @@ const OFFSET_EVENTS = [
   chrome.tabs.onAttached,
   chrome.tabs.onDetached,
   chrome.tabs.onRemoved,
-  chrome.tabs.onUpdated,
   chrome.windows.onFocusChanged
 ];
-OFFSET_EVENTS.forEach(ev => ev.addListener(() => updateAll().catch(() => {})));
+
+let updateTimeout = null;
+function scheduleUpdate() {
+  if (updateTimeout) clearTimeout(updateTimeout);
+  updateTimeout = setTimeout(() => {
+    updateAll().catch(() => {});
+  }, 100);
+}
+
+OFFSET_EVENTS.forEach(ev => ev.addListener(scheduleUpdate));
 
 /**
  * Update function that handles offset calculation for all tabs.
@@ -157,6 +167,12 @@ async function handleOffset(t, currentIndex){
   }
 
   const offset = (typeof t.index === "number" ? t.index: 0) - currentIndex;
+
+  const lastState = tab_state_cache.get(t.id);
+  if (lastState && lastState.offset === offset && lastState.url === t.url) {
+    return;
+  }
+
   const baseHref = faviconURL(t.url).toString();
 
   let dataUrl = null;
@@ -164,6 +180,7 @@ async function handleOffset(t, currentIndex){
   const badgeColor = offset === 0 ? "#555" : (offset > 0 ? "#1e824c" : "#b25a00");
   dataUrl = await composeIcon(baseHref, t.url, text, 32, badgeColor).catch(()=> null);
 
+  tab_state_cache.set(t.id, { offset, url: t.url });
   chrome.tabs.sendMessage(t.id, { type: "OFFSET", offset, dataUrl }).catch(() => {});
 }
 
