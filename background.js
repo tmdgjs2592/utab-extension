@@ -213,66 +213,73 @@ function faviconURL(u) {
  * Geometry is hard-coded for now, update it to dynamic setting
  */ 
 async function composeIcon(baseHref, pageUrl, offset, size, badgeColor = "#1e824c") {
-  let bitmap = null;
   const origin = new URL(pageUrl).origin;
   const composite = `${origin}_${offset}_${badgeColor}`;
 
   if (composited_icon_cache.has(composite)){
-    return composited_icon_cache.get(composite);
+    return await composited_icon_cache.get(composite);
   }
-  if (favicon_cache.has(origin)){
-    bitmap = favicon_cache.get(origin);
-  }
-  else{
-    try{
-      const resp = await fetch(baseHref.toString(), { mode: "cors" });  // host_permissions
-      const blob = await resp.blob();
-      bitmap = await createImageBitmap(blob);
-      favicon_cache.set(origin, bitmap);
-    } catch (e){
-      bitmap = await loadDefaultFaviconBitmap();
+
+  const composePromise = (async () => {
+    let bitmap = null;
+    if (favicon_cache.has(origin)){
+      bitmap = await favicon_cache.get(origin);
     }
-  }
-  
-  
-  const canvas = new OffscreenCanvas(size, size);
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, size, size);
+    else{
+      const fetchPromise = (async () => {
+        try{
+          const resp = await fetch(baseHref.toString(), { mode: "cors" });  // host_permissions
+          const blob = await resp.blob();
+          return await createImageBitmap(blob);
+        } catch (e){
+          return await loadDefaultFaviconBitmap();
+        }
+      })(); 
+      favicon_cache.set(origin, fetchPromise);
+      bitmap = await fetchPromise;
+    }
+    
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, size, size);
 
-  if (bitmap) {
-    ctx.drawImage(bitmap, 0, 0, size, size);
-  } else {
-    // neutral bg if favicon couldn't be fetched
-    ctx.fillStyle = "#888";
-    ctx.fillRect(0, 0, size, size);
-  }
+    if (bitmap) {
+      ctx.drawImage(bitmap, 0, 0, size, size);
+    } else {
+      // neutral bg if favicon couldn't be fetched
+      ctx.fillStyle = "#888";
+      ctx.fillRect(0, 0, size, size);
+    }
 
-  // Badge geometry
-  // TODO: let user change dynamically to their liking
-  const fontPx = 15; 
-  
-  let x = 20;
-  if(offset === 'i') x+=2.5;
-  if(offset === 'w') x-=1.7;
-  let y = 25.5;
-  ctx.font = `bold ${fontPx}px system-ui, -apple-system, Segoe UI, Arial`;
-  ctx.textBaseline = "middle";
+    // Badge geometry
+    // TODO: let user change dynamically to their liking
+    const fontPx = 15; 
+    
+    let x = 20;
+    if(offset === 'i') x+=2.5;
+    if(offset === 'w') x-=1.7;
+    let y = 25.5;
+    ctx.font = `bold ${fontPx}px system-ui, -apple-system, Segoe UI, Arial`;
+    ctx.textBaseline = "middle";
 
-  drawCircle(ctx);
-  ctx.fillStyle = badgeColor;
-  ctx.fill();
+    drawCircle(ctx);
+    ctx.fillStyle = badgeColor;
+    ctx.fill();
 
-  ctx.fillStyle = "#fff";
-  ctx.fillText(offset, x, y);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(offset, x, y);
 
-  const blob = await canvas.convertToBlob({ type: "image/png" });
-  // Convert blob to data URL
-  const buf = await blob.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-  const base64_link = `data:image/png;base64,${base64}`;
-  composited_icon_cache.set(composite, base64_link);
-  return base64_link;
+    const blob = await canvas.convertToBlob({ type: "image/png" });
+    // Convert blob to data URL
+    const buf = await blob.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    return `data:image/png;base64,${base64}`;
+  })();
+
+  composited_icon_cache.set(composite, composePromise);
+  return await composePromise;
 }
+
 
 /**
  * Draw a circle for overlay icon.
@@ -289,20 +296,29 @@ function drawCircle(ctx) {
  * Default favicon is obtained by fetching to chrome with empty url.
  * @returns bitmap of default favicon.
  */
-async function loadDefaultFaviconBitmap() {
-  const url = chrome.runtime.getURL("");
-  const resp = await fetch(url);
-  if (!resp.ok) {
-    throw new Error(`[UTAB] default icon fetch failed: ${resp.status} ${resp.statusText}`);
-  }
+let default_favicon_promise = null;
 
-  const blob = await resp.blob();
-  try {
-    const bmp = await createImageBitmap(blob);
-    console.log("[UTAB] bitmap:", bmp.width, bmp.height);
-    return bmp;
-  } catch (e) {
-    console.error("[UTAB] createImageBitmap failed:", e);
-    throw e;
-  }
+async function loadDefaultFaviconBitmap() {
+  if (default_favicon_promise) return default_favicon_promise;
+
+  default_favicon_promise = (async () => {
+    try {
+      const url = chrome.runtime.getURL("");
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        throw new Error(`[UTAB] default icon fetch failed: ${resp.status} ${resp.statusText}`);
+      }
+
+      const blob = await resp.blob();
+      const bmp = await createImageBitmap(blob);
+      console.log("[UTAB] bitmap:", bmp.width, bmp.height);
+      return bmp;
+    } catch (e) {
+      default_favicon_promise = null;
+      console.error("[UTAB] createImageBitmap failed:", e);
+      throw e;
+    }
+  })();
+
+  return default_favicon_promise;
 }
