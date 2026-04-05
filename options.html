@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Utab Overlay Colors</title>
+    <link rel="stylesheet" href="options.css">
+    <script src="options.js" defer></script>
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="masthead" aria-labelledby="page-title">
+        <p class="eyebrow">UTAB / Overlay Colors</p>
+        <h1 id="page-title">Overlay Colors</h1>
+        <p class="intro">
+          Pick one color for the left side and one for the right. The preview matches the badge Utab
+          adds to each tab favicon.
+        </p>
+      </section>
+
+      <section class="studio" aria-label="Overlay color settings">
+        <div class="tab-stage">
+          <div class="stage-header">
+            <p>Direction is measured from the current tab.</p>
+            <span class="stage-note">The center marker stays neutral.</span>
+          </div>
+
+          <div class="tab-strip" aria-hidden="true">
+            <article class="tab-sample tab-left">
+              <span class="sample-favicon sample-left">
+                <span class="sample-glyph">N</span>
+                <span class="sample-badge">2</span>
+              </span>
+              <span class="sample-label">To the left</span>
+            </article>
+
+            <article class="tab-sample tab-current is-active">
+              <span class="sample-favicon sample-current">
+                <span class="sample-glyph">U</span>
+                <span class="sample-badge">0</span>
+              </span>
+              <span class="sample-label">Current tab</span>
+            </article>
+
+            <article class="tab-sample tab-right">
+              <span class="sample-favicon sample-right">
+                <span class="sample-glyph">M</span>
+                <span class="sample-badge">5</span>
+              </span>
+              <span class="sample-label">To the right</span>
+            </article>
+          </div>
+        </div>
+
+        <form class="controls" id="overlay-form" novalidate>
+          <div class="control-row" data-direction="left">
+            <div class="control-copy">
+              <label class="control-title" for="left-color">Left side</label>
+              <p>Shown on tabs before the current one.</p>
+            </div>
+            <div class="control-inputs">
+              <input id="left-color" name="left-color" type="color" value="#252126" aria-label="Left overlay color picker">
+              <input id="left-hex" name="left-hex" type="text" inputmode="text" spellcheck="false" autocomplete="off" autocapitalize="off" maxlength="7" value="#252126" aria-label="Left overlay hex value">
+            </div>
+          </div>
+
+          <div class="control-row" data-direction="right">
+            <div class="control-copy">
+              <label class="control-title" for="right-color">Right side</label>
+              <p>Shown on tabs after the current one.</p>
+            </div>
+            <div class="control-inputs">
+              <input id="right-color" name="right-color" type="color" value="#315fcb" aria-label="Right overlay color picker">
+              <input id="right-hex" name="right-hex" type="text" inputmode="text" spellcheck="false" autocomplete="off" autocapitalize="off" maxlength="7" value="#315fcb" aria-label="Right overlay hex value">
+            </div>
+          </div>
+
+          <div class="controls-footer">
+            <p class="status" id="status" role="status" aria-live="polite">Loading your saved palette.</p>
+            <button class="reset-button" id="reset-button" type="button">Restore Defaults</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

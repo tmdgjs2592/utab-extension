@@ -5,7 +5,8 @@
   "permissions": [
     "tabs",
     "scripting",
-    "favicon"
+    "favicon",
+    "storage"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -15,6 +16,10 @@
   },
   "action": {
     "default_title": "Offset Overlay"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
   },
   "content_scripts": [
     {

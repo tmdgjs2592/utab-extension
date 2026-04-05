@@ -5,13 +5,18 @@ const KEY_SEQUENCE = [
   "z","x","c","v","b","n","m"
 ];
 const KEY_INDEX = Object.fromEntries(KEY_SEQUENCE.map((k, i) => [k, i]));
+const DEFAULT_OVERLAY_COLORS = Object.freeze({
+  left: "#252126",
+  right: "#315fcb"
+});
+const CURRENT_BADGE_COLOR = "#5f5964";
 
 let composited_icon_cache = new Map();
 let favicon_cache = new Map();
 let tab_state_cache = new Map();
-let jumpWinId = null;
-let neg = false;
 let last_tab = null;
+let overlayColors = { ...DEFAULT_OVERLAY_COLORS };
+const overlayColorsReady = loadOverlayColors();
 
 /**
  * Upon installed, inject content.js file to existing tabs.
@@ -29,10 +34,19 @@ chrome.runtime.onInstalled.addListener(async () => {
         files: ["content.js"],
         world: "ISOLATED"
       });
-    } catch (e) {
-      console.log("Content script failed: ", e);
+    } catch {
+      // Injection is not available on every existing tab during install.
     }
   }
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "sync" || !changes.overlayColors) return;
+
+  overlayColors = sanitizeOverlayColors(changes.overlayColors.newValue);
+  composited_icon_cache.clear();
+  tab_state_cache.clear();
+  scheduleUpdate();
 });
 
 /**
@@ -42,8 +56,7 @@ chrome.runtime.onInstalled.addListener(async () => {
  */
 chrome.commands.onCommand.addListener(async (cmd) => {
   if (cmd === "utab-jump-mode-plus" || cmd === "utab-jump-mode-minus") {
-
-    neg = cmd.endsWith("minus");
+    const neg = cmd.endsWith("minus");
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -70,7 +83,9 @@ chrome.commands.onCommand.addListener(async (cmd) => {
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type === "UTAB_JUMP") {
     const idx = KEY_INDEX[msg.offset?.toLowerCase?.() ?? ""];
-    const offset = neg? idx: -idx;
+    if (typeof idx !== "number") return false;
+
+    const offset = msg.neg ? idx : -idx;
     jumpByOffset(offset, sender.tab?.windowId);
     return true; // async
   }
@@ -79,8 +94,8 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 /**
  * Invalidate jump back feature upon removing the last tab.
  */
-chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
-  if(tabId == last_tab){
+chrome.tabs.onRemoved.addListener(function(tabId) {
+  if (tabId === last_tab) {
     last_tab = null;
   }
   tab_state_cache.delete(tabId);
@@ -137,12 +152,15 @@ function scheduleUpdate() {
 }
 
 OFFSET_EVENTS.forEach(ev => ev.addListener(scheduleUpdate));
+scheduleUpdate();
 
 /**
  * Update function that handles offset calculation for all tabs.
  * Async computation through Promise.all() method.
  */
 async function updateAll() {
+  await overlayColorsReady;
+
   const windows = await chrome.windows.getAll({ populate: true });
   for (const win of windows) {
     if (!win.tabs) continue;
@@ -180,7 +198,7 @@ async function handleOffset(t, currentIndex){
 
   let dataUrl = null;
   const text = formatOffset(offset);
-  const badgeColor = offset === 0 ? "#555" : (offset > 0 ? "#1e824c" : "#b25a00");
+  const badgeColor = getBadgeColor(offset);
   dataUrl = await composeIcon(baseHref, t.url, text, 32, badgeColor).catch(()=> null);
 
   tab_state_cache.set(t.id, { offset, url: t.url });
@@ -193,7 +211,42 @@ async function handleOffset(t, currentIndex){
  * @returns corresponding key sequence
  */
 function formatOffset(n) {
-  return KEY_SEQUENCE[Math.abs(n)];
+  return KEY_SEQUENCE[Math.abs(n)] ?? "";
+}
+
+function getBadgeColor(offset) {
+  if (offset === 0) return CURRENT_BADGE_COLOR;
+  return offset > 0 ? overlayColors.right : overlayColors.left;
+}
+
+function sanitizeOverlayColors(value) {
+  return {
+    left: normalizeHexColor(value?.left) ?? DEFAULT_OVERLAY_COLORS.left,
+    right: normalizeHexColor(value?.right) ?? DEFAULT_OVERLAY_COLORS.right
+  };
+}
+
+function normalizeHexColor(value) {
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  const shortMatch = /^#([0-9a-f]{3})$/i.exec(trimmed);
+  if (shortMatch) {
+    const [r, g, b] = shortMatch[1].split("");
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+
+  if (!/^#[0-9a-f]{6}$/i.test(trimmed)) return null;
+  return trimmed.toLowerCase();
+}
+
+async function loadOverlayColors() {
+  try {
+    const { overlayColors: storedColors } = await chrome.storage.sync.get("overlayColors");
+    overlayColors = sanitizeOverlayColors(storedColors);
+  } catch (error) {
+    overlayColors = { ...DEFAULT_OVERLAY_COLORS };
+  }
 }
 
 /**
@@ -209,8 +262,8 @@ function faviconURL(u) {
 }
 
 /**
- * Draw base image + bottom-right badge; fetch is allowed by host_permissions
- * Geometry is hard-coded for now, update it to dynamic setting
+ * Draw base image + bottom-right badge; fetch is allowed by host_permissions.
+ * Badge geometry stays fixed to match the current overlay icon.
  */ 
 async function composeIcon(baseHref, pageUrl, offset, size, badgeColor = "#1e824c") {
   const origin = new URL(pageUrl).origin;
@@ -252,7 +305,6 @@ async function composeIcon(baseHref, pageUrl, offset, size, badgeColor = "#1e824
     }
 
     // Badge geometry
-    // TODO: let user change dynamically to their liking
     const fontPx = 15; 
     
     let x = 20;
@@ -296,12 +348,12 @@ function drawCircle(ctx) {
  * Default favicon is obtained by fetching to chrome with empty url.
  * @returns bitmap of default favicon.
  */
-let default_favicon_promise = null;
+let defaultFaviconPromise = null;
 
 async function loadDefaultFaviconBitmap() {
-  if (default_favicon_promise) return default_favicon_promise;
+  if (defaultFaviconPromise) return defaultFaviconPromise;
 
-  default_favicon_promise = (async () => {
+  defaultFaviconPromise = (async () => {
     try {
       const url = chrome.runtime.getURL("");
       const resp = await fetch(url);
@@ -310,15 +362,12 @@ async function loadDefaultFaviconBitmap() {
       }
 
       const blob = await resp.blob();
-      const bmp = await createImageBitmap(blob);
-      console.log("[UTAB] bitmap:", bmp.width, bmp.height);
-      return bmp;
-    } catch (e) {
-      default_favicon_promise = null;
-      console.error("[UTAB] createImageBitmap failed:", e);
-      throw e;
+      return await createImageBitmap(blob);
+    } catch (error) {
+      defaultFaviconPromise = null;
+      throw error;
     }
   })();
 
-  return default_favicon_promise;
+  return defaultFaviconPromise;
 }
