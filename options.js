@@ -1,6 +1,6 @@
 const DEFAULT_OVERLAY_COLORS = Object.freeze({
-  left: "#252126",
-  right: "#315fcb"
+  left: "#b25a00",
+  right: "#1e824c"
 });
 const DEFAULT_OVERLAY_SCALE = 1;
 const MIN_OVERLAY_SCALE = 0.75;
