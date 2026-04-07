@@ -1,10 +1,15 @@
 const DEFAULT_OVERLAY_COLORS = Object.freeze({
-  left: "#b25a00",
-  right: "#1e824c"
+  left: "#252126",
+  right: "#315fcb"
 });
+const DEFAULT_OVERLAY_SCALE = 1;
+const MIN_OVERLAY_SCALE = 0.75;
+const MAX_OVERLAY_SCALE = 1.4;
+const OVERLAY_SCALE_STEP = 0.05;
 
 const state = {
   colors: { ...DEFAULT_OVERLAY_COLORS },
+  scale: DEFAULT_OVERLAY_SCALE,
   saveTimer: null,
   pendingStorageSignature: null
 };
@@ -23,33 +28,41 @@ const inputPairs = {
 
 const statusEl = document.getElementById("status");
 const resetButton = document.getElementById("reset-button");
+const sizeInputEl = document.getElementById("overlay-size");
+const sizeValueEl = document.getElementById("overlay-size-value");
 
 initialize().catch(() => {
-  reflectColors(DEFAULT_OVERLAY_COLORS);
-  setStatus("Using the default palette. Changes will save when you edit a color.", "muted");
+  reflectSettings({
+    colors: { ...DEFAULT_OVERLAY_COLORS },
+    scale: DEFAULT_OVERLAY_SCALE
+  });
+  setStatus("Using the default overlay settings. Changes save automatically when you edit them.", "muted");
 });
 
 async function initialize() {
   bindEvents();
 
-  const { overlayColors } = await chrome.storage.sync.get("overlayColors");
-  const colors = sanitizeOverlayColors(overlayColors);
-  reflectColors(colors);
+  const stored = await chrome.storage.sync.get(["overlayColors", "overlayScale"]);
+  reflectSettings(sanitizeOverlaySettings(stored));
   setStatus("Changes save automatically and sync with Chrome.", "muted");
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== "sync" || !changes.overlayColors) return;
+    if (areaName !== "sync") return;
+    if (!changes.overlayColors && !changes.overlayScale) return;
 
-    const nextColors = sanitizeOverlayColors(changes.overlayColors.newValue);
-    const nextSignature = colorsSignature(nextColors);
+    const nextSettings = sanitizeOverlaySettings({
+      overlayColors: changes.overlayColors ? changes.overlayColors.newValue : state.colors,
+      overlayScale: changes.overlayScale ? changes.overlayScale.newValue : state.scale
+    });
+    const nextSignature = settingsSignature(nextSettings);
 
     if (state.pendingStorageSignature === nextSignature) {
       state.pendingStorageSignature = null;
       return;
     }
 
-    reflectColors(nextColors);
-    setStatus("Palette updated.", "success");
+    reflectSettings(nextSettings);
+    setStatus("Overlay settings updated.", "success");
   });
 }
 
@@ -82,8 +95,15 @@ function bindEvents() {
   }
 
   resetButton.addEventListener("click", async () => {
-    reflectColors(DEFAULT_OVERLAY_COLORS);
-    await persistColors("Defaults restored.");
+    reflectSettings({
+      colors: { ...DEFAULT_OVERLAY_COLORS },
+      scale: DEFAULT_OVERLAY_SCALE
+    });
+    await persistSettings("Defaults restored.");
+  });
+
+  sizeInputEl.addEventListener("input", () => {
+    applyScale(sizePercentToScale(sizeInputEl.value), { save: true });
   });
 }
 
@@ -104,13 +124,28 @@ function applyColor(direction, value, options = {}) {
   }
 }
 
-function reflectColors(colors) {
-  state.colors = { ...colors };
+function applyScale(value, options = {}) {
+  const normalized = normalizeOverlayScale(value);
+  if (normalized == null) return;
+
+  state.scale = normalized;
+  syncSizeInput(normalized);
+  updatePreview();
+
+  if (options.save) {
+    scheduleSave();
+  }
+}
+
+function reflectSettings(settings) {
+  state.colors = { ...settings.colors };
+  state.scale = settings.scale;
 
   for (const direction of Object.keys(inputPairs)) {
-    syncInputs(direction, colors[direction]);
+    syncInputs(direction, settings.colors[direction]);
   }
 
+  syncSizeInput(settings.scale);
   updatePreview();
 }
 
@@ -124,31 +159,45 @@ function syncInputs(direction, value, source) {
 function updatePreview() {
   document.documentElement.style.setProperty("--preview-left", state.colors.left);
   document.documentElement.style.setProperty("--preview-right", state.colors.right);
+  document.documentElement.style.setProperty("--preview-scale", String(state.scale));
+  const formattedScale = formatScalePercent(state.scale);
+  sizeValueEl.value = formattedScale;
+  sizeValueEl.textContent = formattedScale;
 }
 
 function scheduleSave() {
   window.clearTimeout(state.saveTimer);
   setStatus("Saving changes...", "muted");
   state.saveTimer = window.setTimeout(() => {
-    persistColors("Saved to Chrome sync.");
+    persistSettings("Saved to Chrome sync.");
   }, 140);
 }
 
-async function persistColors(message) {
+async function persistSettings(message) {
   window.clearTimeout(state.saveTimer);
 
   try {
-    state.pendingStorageSignature = colorsSignature(state.colors);
-    await chrome.storage.sync.set({ overlayColors: { ...state.colors } });
+    state.pendingStorageSignature = settingsSignature(state);
+    await chrome.storage.sync.set({
+      overlayColors: { ...state.colors },
+      overlayScale: state.scale
+    });
     setStatus(message, "success");
   } catch (error) {
     state.pendingStorageSignature = null;
-    setStatus("Chrome could not save the palette right now.", "error");
+    setStatus("Chrome could not save the overlay settings right now.", "error");
   }
 }
 
-function colorsSignature(colors) {
-  return `${colors.left}|${colors.right}`;
+function settingsSignature(settings) {
+  return `${settings.colors.left}|${settings.colors.right}|${settings.scale.toFixed(2)}`;
+}
+
+function sanitizeOverlaySettings(value) {
+  return {
+    colors: sanitizeOverlayColors(value?.overlayColors),
+    scale: sanitizeOverlayScale(value?.overlayScale)
+  };
 }
 
 function sanitizeOverlayColors(value) {
@@ -156,6 +205,31 @@ function sanitizeOverlayColors(value) {
     left: normalizeHexColor(value?.left) ?? DEFAULT_OVERLAY_COLORS.left,
     right: normalizeHexColor(value?.right) ?? DEFAULT_OVERLAY_COLORS.right
   };
+}
+
+function sanitizeOverlayScale(value) {
+  return normalizeOverlayScale(value) ?? DEFAULT_OVERLAY_SCALE;
+}
+
+function normalizeOverlayScale(value) {
+  const numeric = typeof value === "string" ? Number(value) : value;
+  if (!Number.isFinite(numeric)) return null;
+
+  const clamped = Math.min(MAX_OVERLAY_SCALE, Math.max(MIN_OVERLAY_SCALE, numeric));
+  const stepped = Math.round(clamped / OVERLAY_SCALE_STEP) * OVERLAY_SCALE_STEP;
+  return Number(stepped.toFixed(2));
+}
+
+function syncSizeInput(scale) {
+  sizeInputEl.value = String(Math.round(scale * 100));
+}
+
+function sizePercentToScale(value) {
+  return Number(value) / 100;
+}
+
+function formatScalePercent(scale) {
+  return `${Math.round(scale * 100)}%`;
 }
 
 function normalizeHexColor(value) {

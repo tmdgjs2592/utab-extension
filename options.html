@@ -3,22 +3,22 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Utab Overlay Colors</title>
+    <title>Utab Overlay Settings</title>
     <link rel="stylesheet" href="options.css">
     <script src="options.js" defer></script>
   </head>
   <body>
     <main class="page-shell">
       <section class="masthead" aria-labelledby="page-title">
-        <p class="eyebrow">UTAB / Overlay Colors</p>
-        <h1 id="page-title">Overlay Colors</h1>
+        <p class="eyebrow">UTAB / Overlay Settings</p>
+        <h1 id="page-title">Overlay Settings</h1>
         <p class="intro">
-          Pick one color for the left side and one for the right. The preview matches the badge Utab
-          adds to each tab favicon.
+          Pick left and right colors, then make the badge smaller or larger. The preview matches the
+          overlay Utab adds to each tab favicon.
         </p>
       </section>
 
-      <section class="studio" aria-label="Overlay color settings">
+      <section class="studio" aria-label="Overlay settings">
         <div class="tab-stage">
           <div class="stage-header">
             <p>Direction is measured from the current tab.</p>
@@ -75,8 +75,19 @@
             </div>
           </div>
 
+          <div class="control-row" data-setting="size">
+            <div class="control-copy">
+              <label class="control-title" for="overlay-size">Overlay size</label>
+              <p>Scale the badge while keeping it tucked into the favicon corner.</p>
+            </div>
+            <div class="control-inputs control-inputs-size">
+              <input id="overlay-size" name="overlay-size" type="range" min="75" max="140" step="5" value="100" aria-describedby="overlay-size-value">
+              <output class="range-value" id="overlay-size-value" for="overlay-size">100%</output>
+            </div>
+          </div>
+
           <div class="controls-footer">
-            <p class="status" id="status" role="status" aria-live="polite">Loading your saved palette.</p>
+            <p class="status" id="status" role="status" aria-live="polite">Loading your saved settings.</p>
             <button class="reset-button" id="reset-button" type="button">Restore Defaults</button>
           </div>
         </form>

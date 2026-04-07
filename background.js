@@ -9,6 +9,10 @@ const DEFAULT_OVERLAY_COLORS = Object.freeze({
   left: "#252126",
   right: "#315fcb"
 });
+const DEFAULT_OVERLAY_SCALE = 1;
+const MIN_OVERLAY_SCALE = 0.75;
+const MAX_OVERLAY_SCALE = 1.4;
+const OVERLAY_SCALE_STEP = 0.05;
 const CURRENT_BADGE_COLOR = "#5f5964";
 
 let composited_icon_cache = new Map();
@@ -16,7 +20,8 @@ let favicon_cache = new Map();
 let tab_state_cache = new Map();
 let last_tab = null;
 let overlayColors = { ...DEFAULT_OVERLAY_COLORS };
-const overlayColorsReady = loadOverlayColors();
+let overlayScale = DEFAULT_OVERLAY_SCALE;
+const overlayPreferencesReady = loadOverlayPreferences();
 
 /**
  * Upon installed, inject content.js file to existing tabs.
@@ -41,9 +46,22 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== "sync" || !changes.overlayColors) return;
+  if (areaName !== "sync") return;
 
-  overlayColors = sanitizeOverlayColors(changes.overlayColors.newValue);
+  let shouldRefresh = false;
+
+  if (changes.overlayColors) {
+    overlayColors = sanitizeOverlayColors(changes.overlayColors.newValue);
+    shouldRefresh = true;
+  }
+
+  if (changes.overlayScale) {
+    overlayScale = sanitizeOverlayScale(changes.overlayScale.newValue);
+    shouldRefresh = true;
+  }
+
+  if (!shouldRefresh) return;
+
   composited_icon_cache.clear();
   tab_state_cache.clear();
   scheduleUpdate();
@@ -159,7 +177,7 @@ scheduleUpdate();
  * Async computation through Promise.all() method.
  */
 async function updateAll() {
-  await overlayColorsReady;
+  await overlayPreferencesReady;
 
   const windows = await chrome.windows.getAll({ populate: true });
   for (const win of windows) {
@@ -199,7 +217,7 @@ async function handleOffset(t, currentIndex){
   let dataUrl = null;
   const text = formatOffset(offset);
   const badgeColor = getBadgeColor(offset);
-  dataUrl = await composeIcon(baseHref, t.url, text, 32, badgeColor).catch(()=> null);
+  dataUrl = await composeIcon(baseHref, t.url, text, 32, badgeColor, overlayScale).catch(()=> null);
 
   tab_state_cache.set(t.id, { offset, url: t.url });
   chrome.tabs.sendMessage(t.id, { type: "OFFSET", offset, dataUrl }).catch(() => {});
@@ -226,6 +244,19 @@ function sanitizeOverlayColors(value) {
   };
 }
 
+function sanitizeOverlayScale(value) {
+  return normalizeOverlayScale(value) ?? DEFAULT_OVERLAY_SCALE;
+}
+
+function normalizeOverlayScale(value) {
+  const numeric = typeof value === "string" ? Number(value) : value;
+  if (!Number.isFinite(numeric)) return null;
+
+  const clamped = Math.min(MAX_OVERLAY_SCALE, Math.max(MIN_OVERLAY_SCALE, numeric));
+  const stepped = Math.round(clamped / OVERLAY_SCALE_STEP) * OVERLAY_SCALE_STEP;
+  return Number(stepped.toFixed(2));
+}
+
 function normalizeHexColor(value) {
   if (typeof value !== "string") return null;
 
@@ -240,12 +271,14 @@ function normalizeHexColor(value) {
   return trimmed.toLowerCase();
 }
 
-async function loadOverlayColors() {
+async function loadOverlayPreferences() {
   try {
-    const { overlayColors: storedColors } = await chrome.storage.sync.get("overlayColors");
+    const { overlayColors: storedColors, overlayScale: storedScale } = await chrome.storage.sync.get(["overlayColors", "overlayScale"]);
     overlayColors = sanitizeOverlayColors(storedColors);
+    overlayScale = sanitizeOverlayScale(storedScale);
   } catch (error) {
     overlayColors = { ...DEFAULT_OVERLAY_COLORS };
+    overlayScale = DEFAULT_OVERLAY_SCALE;
   }
 }
 
@@ -265,9 +298,10 @@ function faviconURL(u) {
  * Draw base image + bottom-right badge; fetch is allowed by host_permissions.
  * Badge geometry stays fixed to match the current overlay icon.
  */ 
-async function composeIcon(baseHref, pageUrl, offset, size, badgeColor = "#1e824c") {
+async function composeIcon(baseHref, pageUrl, offset, size, badgeColor = "#1e824c", badgeScale = DEFAULT_OVERLAY_SCALE) {
   const origin = new URL(pageUrl).origin;
-  const composite = `${origin}_${offset}_${badgeColor}`;
+  const normalizedScale = sanitizeOverlayScale(badgeScale);
+  const composite = `${origin}_${offset}_${badgeColor}_${normalizedScale.toFixed(2)}`;
 
   if (composited_icon_cache.has(composite)){
     return await composited_icon_cache.get(composite);
@@ -304,22 +338,22 @@ async function composeIcon(baseHref, pageUrl, offset, size, badgeColor = "#1e824
       ctx.fillRect(0, 0, size, size);
     }
 
-    // Badge geometry
-    const fontPx = 15; 
-    
-    let x = 20;
-    if(offset === 'i') x+=2.5;
-    if(offset === 'w') x-=1.7;
-    let y = 25.5;
-    ctx.font = `bold ${fontPx}px system-ui, -apple-system, Segoe UI, Arial`;
+    const badgeGeometry = getBadgeGeometry(size, normalizedScale);
+    let textX = badgeGeometry.centerX;
+    if (offset === "i") textX += badgeGeometry.radius * 0.24;
+    if (offset === "w") textX -= badgeGeometry.radius * 0.16;
+    const textY = badgeGeometry.centerY + badgeGeometry.radius * 0.12;
+
+    ctx.font = `bold ${badgeGeometry.fontPx}px system-ui, -apple-system, Segoe UI, Arial`;
+    ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    drawCircle(ctx);
+    drawCircle(ctx, badgeGeometry);
     ctx.fillStyle = badgeColor;
     ctx.fill();
 
     ctx.fillStyle = "#fff";
-    ctx.fillText(offset, x, y);
+    ctx.fillText(offset, textX, textY);
 
     const blob = await canvas.convertToBlob({ type: "image/png" });
     // Convert blob to data URL
@@ -337,10 +371,24 @@ async function composeIcon(baseHref, pageUrl, offset, size, badgeColor = "#1e824
  * Draw a circle for overlay icon.
  * @param ctx canvas 
  */
-function drawCircle(ctx) {
+function drawCircle(ctx, geometry) {
   ctx.beginPath();
-  ctx.arc(24.5, 24.6, 7.4, 0, 2 * Math.PI);
+  ctx.arc(geometry.centerX, geometry.centerY, geometry.radius, 0, 2 * Math.PI);
   ctx.closePath();
+}
+
+function getBadgeGeometry(size, scale) {
+  const radius = size * 0.23125 * scale;
+  const edgeMargin = size * 0.003125;
+  const centerX = size - edgeMargin - radius;
+  const centerY = size - edgeMargin - radius;
+
+  return {
+    centerX,
+    centerY,
+    radius,
+    fontPx: size * 0.46875 * scale
+  };
 }
 
 /**

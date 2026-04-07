@@ -3,6 +3,7 @@
   --preview-left: #252126;
   --preview-right: #315fcb;
   --preview-current: #5f5964;
+  --preview-scale: 1;
   --page-bg: light-dark(oklch(0.978 0.008 85), oklch(0.18 0.015 300));
   --page-bg-strong: light-dark(oklch(0.952 0.01 82), oklch(0.23 0.016 300));
   --panel-bg: light-dark(oklch(0.968 0.008 85), oklch(0.208 0.014 300));
@@ -183,6 +184,8 @@ body {
   font-size: 0.74rem;
   font-weight: 600;
   box-shadow: 0 0 0 0.16rem color-mix(in oklch, var(--page-bg-strong) 88%, transparent);
+  transform: scale(var(--preview-scale));
+  transform-origin: bottom right;
 }
 
 .sample-label {
@@ -242,6 +245,10 @@ body {
   align-items: center;
 }
 
+.control-inputs-size {
+  align-items: center;
+}
+
 input[type="color"] {
   width: 4.35rem;
   height: 4.35rem;
@@ -274,6 +281,12 @@ input[type="text"] {
   text-transform: lowercase;
   caret-color: var(--ui-accent);
   transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+input[type="range"] {
+  width: min(100%, 16rem);
+  margin: 0;
+  accent-color: var(--ui-accent);
 }
 
 input[type="text"][aria-invalid="true"] {
@@ -321,6 +334,17 @@ input[type="text"]:focus-visible {
 
 .status[data-tone="error"] {
   color: oklch(0.64 0.17 25);
+}
+
+.range-value {
+  min-width: 4.4rem;
+  padding: 0.58rem 0.82rem;
+  border: 1px solid color-mix(in oklch, var(--surface-line) 68%, transparent);
+  border-radius: 999px;
+  background: var(--page-bg);
+  color: var(--text-strong);
+  font-weight: 600;
+  text-align: center;
 }
 
 .reset-button {
