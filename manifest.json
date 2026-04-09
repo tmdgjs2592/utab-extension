@@ -58,6 +58,13 @@
         "windows": "Alt+B"
       },
       "description": "Enter jump mode plus"
+    },
+    "utab-search": {
+      "suggested_key": {
+        "mac": "Ctrl+Shift+L",
+        "windows": "Alt-Shift-L"
+      },
+      "description": "Enter search mode"
     }
   }
 }
