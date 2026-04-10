@@ -78,20 +78,28 @@ chrome.commands.onCommand.addListener(async (cmd) => {
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab.id || !tab.url) return;
-    if (/^(chrome|edge|about|chrome-extension):/i.test(tab.url)) return;
+    if (!tab?.id || !tab.url) return;
+    if (isRestrictedUrl(tab.url)) return;
+
+    await ensureContentScript(tab.id, tab.url);
 
     // Ask the current page to start listening for digits
     const message = "UTAB_JUMP_MODE";
-    chrome.tabs.query({ active: true, currentWindow: true })
-      .then(([tab]) => tab && chrome.tabs.sendMessage(tab.id, { type: message, neg: neg}));
+    chrome.tabs.sendMessage(tab.id, { type: message, neg: neg }).catch(() => {});
   }
   else if (cmd === "utab-jump-back"){
     const [temp] = await chrome.tabs.query({ active: true, currentWindow: true });
     if(last_tab != null){
+      const target = await chrome.tabs.get(last_tab).catch(() => null);
+      if (target?.windowId != null) {
+        await chrome.windows.update(target.windowId, { focused: true }).catch(() => {});
+      }
       await chrome.tabs.update(last_tab, {active: true});
-      last_tab = temp.id;
+      last_tab = temp?.id ?? null;
     }
+  }
+  else if (cmd === "utab-search") {
+    await openTabSearch();
   }
 });
 
@@ -106,6 +114,11 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
     const offset = msg.neg ? idx : -idx;
     jumpByOffset(offset, sender.tab?.windowId);
     return true; // async
+  }
+
+  if (msg?.type === "UTAB_TAB_SEARCH_ACTIVATE") {
+    activateTabById(msg.tabId, msg.windowId, sender.tab?.id).catch(() => {});
+    return true;
   }
 });
 
@@ -138,6 +151,92 @@ async function jumpByOffset(offset, windowId){
     last_tab = tabs[cur].id;
     await chrome.tabs.update(target.id, {active: true});
   }
+}
+
+async function openTabSearch() {
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!activeTab?.id || !activeTab.url) return;
+  if (isRestrictedUrl(activeTab.url)) return;
+
+  await ensureContentScript(activeTab.id, activeTab.url);
+
+  const tabs = await chrome.tabs.query({});
+  const items = buildTabSearchItems(tabs, activeTab);
+
+  chrome.tabs.sendMessage(activeTab.id, {
+    type: "UTAB_TAB_SEARCH_OPEN",
+    items
+  }).catch(() => {});
+}
+
+async function activateTabById(tabId, windowId, sourceTabId) {
+  if (typeof tabId !== "number") return;
+
+  if (typeof sourceTabId === "number") {
+    last_tab = sourceTabId;
+  }
+
+  if (typeof windowId === "number") {
+    await chrome.windows.update(windowId, { focused: true }).catch(() => {});
+  }
+
+  await chrome.tabs.update(tabId, { active: true });
+}
+
+function buildTabSearchItems(tabs, activeTab) {
+  return tabs
+    .filter(tab => typeof tab.id === "number" && typeof tab.windowId === "number")
+    .sort((a, b) => compareSearchTabs(a, b, activeTab))
+    .map(tab => ({
+      id: tab.id,
+      windowId: tab.windowId,
+      title: formatTabSearchTitle(tab),
+      url: tab.url ?? "",
+      favIconUrl: tab.favIconUrl ?? "",
+      active: Boolean(tab.active),
+      currentWindow: tab.windowId === activeTab.windowId
+    }));
+}
+
+function compareSearchTabs(a, b, activeTab) {
+  const sameWindowDelta = Number(b.windowId === activeTab.windowId) - Number(a.windowId === activeTab.windowId);
+  if (sameWindowDelta !== 0) return sameWindowDelta;
+
+  const accessA = typeof a.lastAccessed === "number" ? a.lastAccessed : 0;
+  const accessB = typeof b.lastAccessed === "number" ? b.lastAccessed : 0;
+  if (accessA !== accessB) return accessB - accessA;
+
+  if (a.windowId !== b.windowId) return a.windowId - b.windowId;
+  return (a.index ?? 0) - (b.index ?? 0);
+}
+
+function formatTabSearchTitle(tab) {
+  if (typeof tab.title === "string" && tab.title.trim()) return tab.title.trim();
+  if (typeof tab.url !== "string" || !tab.url) return "Untitled tab";
+
+  try {
+    return new URL(tab.url).hostname || tab.url;
+  } catch {
+    return tab.url;
+  }
+}
+
+async function ensureContentScript(tabId, tabUrl) {
+  if (isRestrictedUrl(tabUrl)) return;
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["content.js"],
+      world: "ISOLATED"
+    });
+  } catch {
+    // Injection is unavailable for some pages even after filtering.
+  }
+}
+
+function isRestrictedUrl(url) {
+  return /^(chrome|edge|about|chrome-extension):/i.test(url);
 }
 
 /**

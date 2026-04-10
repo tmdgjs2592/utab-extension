@@ -62,9 +62,19 @@
     "utab-search": {
       "suggested_key": {
         "mac": "Ctrl+Shift+L",
-        "windows": "Alt-Shift-L"
+        "windows": "Alt+Shift+L"
       },
       "description": "Enter search mode"
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "search.css"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }
