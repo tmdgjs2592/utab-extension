@@ -159,9 +159,8 @@ if (!window.utabInitialized) {
     host.hidden = true
 
     const shadow = host.attachShadow({ mode: "open" })
-    const style = document.createElement("link")
-    style.rel = "stylesheet"
-    style.href = chrome.runtime.getURL("search.css")
+    const style = document.createElement("style")
+    style.textContent = SEARCH_STYLE
 
     const layer = document.createElement("div")
     layer.className = "utab-search-layer"
