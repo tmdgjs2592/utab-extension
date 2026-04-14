@@ -18,7 +18,7 @@
     "default_title": "Offset Overlay"
   },
   "options_ui": {
-    "page": "options.html",
+    "page": "option_page/options.html",
     "open_in_tab": true
   },
   "content_scripts": [

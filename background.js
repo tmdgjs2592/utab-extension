@@ -227,7 +227,7 @@ async function ensureContentScript(tabId, tabUrl) {
   try {
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ["search_style.js", "content.js"],
+      files: ["styles/search_style.js", "content.js"],
       world: "ISOLATED"
     });
   } catch {
