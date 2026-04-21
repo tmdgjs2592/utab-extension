@@ -6,7 +6,8 @@
     "tabs",
     "scripting",
     "favicon",
-    "storage"
+    "storage",
+    "bookmarks"
   ],
   "host_permissions": [
     "<all_urls>"

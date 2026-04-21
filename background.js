@@ -117,7 +117,11 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   }
 
   if (msg?.type === "UTAB_TAB_SEARCH_ACTIVATE") {
-    activateTabById(msg.tabId, msg.windowId, sender.tab?.id).catch(() => {});
+    if (msg.itemType === "bookmark" || msg.itemType === "google_search") {
+      chrome.tabs.create({ url: msg.url }).catch(() => {});
+    } else {
+      activateTabById(msg.tabId, msg.windowId, sender.tab?.id).catch(() => {});
+    }
     return true;
   }
 });
@@ -161,7 +165,15 @@ async function openTabSearch() {
   await ensureContentScript(activeTab.id, activeTab.url);
 
   const tabs = await chrome.tabs.query({});
-  const items = buildTabSearchItems(tabs, activeTab);
+  let bookmarks = [];
+  try {
+    const bookmarkTree = await chrome.bookmarks.getTree();
+    bookmarks = flattenBookmarks(bookmarkTree);
+  } catch (e) {
+    console.error("Failed to fetch bookmarks", e);
+  }
+
+  const items = buildSearchItems(tabs, bookmarks, activeTab);
 
   chrome.tabs.sendMessage(activeTab.id, {
     type: "UTAB_TAB_SEARCH_OPEN",
@@ -183,11 +195,12 @@ async function activateTabById(tabId, windowId, sourceTabId) {
   await chrome.tabs.update(tabId, { active: true });
 }
 
-function buildTabSearchItems(tabs, activeTab) {
-  return tabs
+function buildSearchItems(tabs, bookmarks, activeTab) {
+  const tabItems = tabs
     .filter(tab => typeof tab.id === "number" && typeof tab.windowId === "number")
     .sort((a, b) => compareSearchTabs(a, b, activeTab))
     .map(tab => ({
+      itemType: "tab",
       id: tab.id,
       windowId: tab.windowId,
       title: formatTabSearchTitle(tab),
@@ -196,6 +209,30 @@ function buildTabSearchItems(tabs, activeTab) {
       active: Boolean(tab.active),
       currentWindow: tab.windowId === activeTab.windowId
     }));
+
+  const bookmarkItems = bookmarks.map(bm => ({
+    itemType: "bookmark",
+    id: bm.id,
+    title: bm.title || formatTabSearchTitle({ url: bm.url }),
+    url: bm.url,
+    favIconUrl: faviconURL(bm.url).toString(),
+    active: false,
+    currentWindow: false
+  }));
+
+  return [...tabItems, ...bookmarkItems];
+}
+
+function flattenBookmarks(nodes, result = []) {
+  for (const node of nodes) {
+    if (node.url) {
+      result.push(node);
+    }
+    if (node.children) {
+      flattenBookmarks(node.children, result);
+    }
+  }
+  return result;
 }
 
 function compareSearchTabs(a, b, activeTab) {

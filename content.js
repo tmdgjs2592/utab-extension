@@ -263,6 +263,20 @@ if (!window.utabInitialized) {
       : searchState.items
 
     searchState.filteredItems = matches.slice(0, MAX_SEARCH_RESULTS)
+
+    if (query) {
+      searchState.filteredItems.push({
+        itemType: "google_search",
+        id: "google_search",
+        title: `Search Google for "${searchState.input.value.trim()}"`,
+        url: `https://www.google.com/search?q=${encodeURIComponent(searchState.input.value.trim())}`,
+        favIconUrl: "https://www.google.com/favicon.ico",
+        active: false,
+        currentWindow: false,
+        searchText: ""
+      })
+    }
+
     if (!searchState.filteredItems.length) {
       searchState.selectedIndex = 0
     } else if (searchState.selectedIndex >= searchState.filteredItems.length) {
@@ -335,15 +349,25 @@ if (!window.utabInitialized) {
     copy.append(title, url)
     button.append(icon, copy)
 
-    if (item.active) {
+    if (item.active && item.itemType === "tab") {
       const meta = document.createElement("span")
       meta.className = "utab-search-meta"
       meta.textContent = "Current"
       button.append(meta)
-    } else if (item.currentWindow) {
+    } else if (item.currentWindow && item.itemType === "tab") {
       const meta = document.createElement("span")
       meta.className = "utab-search-meta"
       meta.textContent = "This window"
+      button.append(meta)
+    } else if (item.itemType === "bookmark") {
+      const meta = document.createElement("span")
+      meta.className = "utab-search-meta"
+      meta.textContent = "Bookmark"
+      button.append(meta)
+    } else if (item.itemType === "google_search") {
+      const meta = document.createElement("span")
+      meta.className = "utab-search-meta"
+      meta.textContent = "Web Search"
       button.append(meta)
     }
 
@@ -407,7 +431,9 @@ if (!window.utabInitialized) {
     chrome.runtime.sendMessage({
       type: "UTAB_TAB_SEARCH_ACTIVATE",
       tabId: item.id,
-      windowId: item.windowId
+      windowId: item.windowId,
+      itemType: item.itemType,
+      url: item.url
     })
   }
 
@@ -417,6 +443,7 @@ if (!window.utabInitialized) {
       : "Untitled tab"
 
     return {
+      itemType: item?.itemType || "tab",
       id: item.id,
       windowId: item.windowId,
       title,
