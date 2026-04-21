@@ -349,7 +349,7 @@ if (!window.utabInitialized) {
     copy.append(title, url)
     button.append(icon, copy)
 
-    if (item.active && item.itemType === "tab") {
+    if (item.active && item.currentWindow && item.itemType === "tab") {
       const meta = document.createElement("span")
       meta.className = "utab-search-meta"
       meta.textContent = "Current"
