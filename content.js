@@ -259,7 +259,7 @@ if (!window.utabInitialized) {
     const query = searchState.input.value.trim().toLowerCase()
     const tokens = query.split(/\s+/).filter(Boolean)
     const matches = tokens.length
-      ? searchState.items.filter(item => tokens.every(token => item.searchText.includes(token)))
+      ? searchState.items.filter(item => tokens.every(token => item.searchText.includes(token) || item.url.includes(token)))
       : searchState.items
 
     searchState.filteredItems = matches.slice(0, MAX_SEARCH_RESULTS)
