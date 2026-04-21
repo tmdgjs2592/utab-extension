@@ -17,7 +17,7 @@ const SEARCH_STYLE = `
       display: grid;
       align-items: start;
       justify-items: center;
-      padding: clamp(1rem, 4vw, 4rem);
+      padding: clamp(16px, 4vw, 64px);
     }
 
     .utab-search-backdrop {
@@ -31,12 +31,12 @@ const SEARCH_STYLE = `
 
     .utab-search-panel {
       position: relative;
-      width: min(44rem, calc(100vw - 2rem));
-      max-height: min(70vh, 32rem);
+      width: 700px;
+      max-height: min(70vh, 512px);
       display: flex;
       flex-direction: column;
       border: 1px solid light-dark(oklch(0.85 0.01 85 / 0.5), oklch(0.3 0.01 300 / 0.5));
-      border-radius: 0.75rem;
+      border-radius: 12px;
       background: light-dark(oklch(0.98 0.005 85 / 0.95), oklch(0.2 0.01 300 / 0.95));
       box-shadow: light-dark(0 16px 40px oklch(0.38 0.02 304 / 0.1), 0 16px 40px oklch(0.02 0.01 300 / 0.3));
       color: light-dark(oklch(0.2 0.02 305), oklch(0.95 0.01 300));
@@ -47,7 +47,7 @@ const SEARCH_STYLE = `
     .utab-search-header {
       display: flex;
       align-items: center;
-      padding: 0.75rem 1.25rem;
+      padding: 12px 20px;
       border-bottom: 1px solid light-dark(oklch(0.9 0.01 85), oklch(0.28 0.01 300));
     }
 
@@ -61,7 +61,7 @@ const SEARCH_STYLE = `
       background: transparent;
       color: inherit;
       font: inherit;
-      font-size: 1.25rem;
+      font-size: 20px;
     }
 
     .utab-search-input::placeholder {
@@ -71,20 +71,20 @@ const SEARCH_STYLE = `
     .utab-search-results {
       flex: 1;
       overflow-y: auto;
-      padding: 0.5rem;
+      padding: 8px;
       display: flex;
       flex-direction: column;
-      gap: 0.1rem;
+      gap: 2px;
     }
 
     .utab-search-result {
       width: 100%;
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.5rem 0.75rem;
+      gap: 12px;
+      padding: 8px 12px;
       border: none;
-      border-radius: 0.5rem;
+      border-radius: 8px;
       background: transparent;
       color: inherit;
       text-align: left;
@@ -103,9 +103,9 @@ const SEARCH_STYLE = `
       position: relative;
       display: grid;
       place-items: center;
-      width: 1.25rem;
-      height: 1.25rem;
-      border-radius: 0.25rem;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
       background: transparent;
       overflow: hidden;
       flex-shrink: 0;
@@ -119,7 +119,7 @@ const SEARCH_STYLE = `
 
     .utab-search-icon-fallback {
       color: light-dark(oklch(0.5 0.01 85), oklch(0.7 0.01 300));
-      font-size: 0.8rem;
+      font-size: 13px;
       font-weight: 600;
       text-transform: uppercase;
     }
@@ -129,12 +129,12 @@ const SEARCH_STYLE = `
       flex: 1;
       display: flex;
       align-items: baseline;
-      gap: 0.5rem;
+      gap: 8px;
       overflow: hidden;
     }
 
     .utab-search-title {
-      font-size: 0.95rem;
+      font-size: 15px;
       font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
@@ -143,7 +143,7 @@ const SEARCH_STYLE = `
 
     .utab-search-url {
       color: light-dark(oklch(0.5 0.01 85), oklch(0.6 0.01 300));
-      font-size: 0.8rem;
+      font-size: 13px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -151,16 +151,16 @@ const SEARCH_STYLE = `
 
     .utab-search-meta {
       color: light-dark(oklch(0.5 0.01 85), oklch(0.6 0.01 300));
-      font-size: 0.75rem;
+      font-size: 12px;
       white-space: nowrap;
       flex-shrink: 0;
     }
 
     .utab-search-empty {
-      padding: 3rem 1rem;
+      padding: 48px 16px;
       text-align: center;
       color: light-dark(oklch(0.5 0.01 85), oklch(0.6 0.01 300));
-      font-size: 0.9rem;
+      font-size: 14px;
     }
 
     @keyframes utab-search-enter {
