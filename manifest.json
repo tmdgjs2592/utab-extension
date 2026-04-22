@@ -13,7 +13,8 @@
     "<all_urls>"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "action": {
     "default_title": "Offset Overlay"
@@ -71,7 +72,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "search.css"
+        "search.css",
+        "lib/*.js"
       ],
       "matches": [
         "<all_urls>"
