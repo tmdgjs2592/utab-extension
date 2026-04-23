@@ -48,10 +48,10 @@ chrome.commands.onCommand.addListener(async (cmd) => {
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type === "UTAB_JUMP") {
-    return handleJumpMessage(msg, sender);
+    handleJumpMessage(msg, sender);
   }
   if (msg?.type === "UTAB_TAB_SEARCH_ACTIVATE") {
-    return handleTabSearchActivate(msg, sender.tab?.id);
+    handleTabSearchActivate(msg, sender.tab?.id);
   }
 });
 

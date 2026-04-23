@@ -23,7 +23,7 @@ if (!window.utabInitialized) {
     prevFocus: null
   }
 
-  const onMessage = async (msg) => {
+  const onMessage = (msg) => {
     if (!msg?.type) return
 
     if (msg.type === "UTAB_JUMP_MODE") {
