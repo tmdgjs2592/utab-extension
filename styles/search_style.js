@@ -1,4 +1,4 @@
-const SEARCH_STYLE = `
+globalThis.SEARCH_STYLE ??= `
     :host {
       position: fixed;
       inset: 0;
