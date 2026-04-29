@@ -5,7 +5,22 @@ import { openTabSearch } from "./lib/search.js";
 
 const overlayPreferencesReady = initPreferences();
 
+async function ensureOffscreenDocument() {
+  try {
+    if (typeof chrome.runtime.getContexts === "function") {
+      const contexts = await chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] });
+      if (contexts.length > 0) return;
+    }
+    await chrome.offscreen.createDocument({
+      url: "offscreen.html",
+      reasons: ["DOM_PARSER"],
+      justification: "Keep service worker responsive for keyboard commands"
+    });
+  } catch {}
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
+  ensureOffscreenDocument().catch(() => {});
   const tabs = await chrome.tabs.query({});
   for (const t of tabs) {
     if (!t.id || !t.url) continue;
@@ -18,6 +33,10 @@ chrome.runtime.onInstalled.addListener(async () => {
       });
     } catch {}
   }
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  ensureOffscreenDocument().catch(() => {});
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -46,7 +65,11 @@ chrome.commands.onCommand.addListener(async (cmd) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((msg, sender) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === "KEEP_ALIVE") {
+    sendResponse({ ok: true });
+    return;
+  }
   if (msg?.type === "UTAB_JUMP") {
     handleJumpMessage(msg, sender);
   }
@@ -58,4 +81,5 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 chrome.tabs.onRemoved.addListener(invalidateJumpBackOnRemove);
 
 OFFSET_EVENTS.forEach(ev => ev.addListener(() => scheduleUpdate(() => updateAll(KEY_SEQUENCE))));
+ensureOffscreenDocument().catch(() => {});
 scheduleUpdate(() => updateAll(KEY_SEQUENCE));
