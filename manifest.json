@@ -43,27 +43,31 @@
   "commands": {
     "utab-jump-mode-plus": {
       "suggested_key": {
+        "linux": "Alt+U",
         "mac": "Ctrl+U",
         "windows": "Alt+U"
       },
-      "description": "Enter jump mode minus"
+      "description": "Enter jump mode left"
     },
     "utab-jump-mode-minus": {
       "suggested_key": {
+        "linux": "Alt+I",
         "mac": "Ctrl+I",
         "windows": "Alt+I"
       },
-      "description": "Enter jump mode plus"
+      "description": "Enter jump mode right"
     },
     "utab-jump-back": {
       "suggested_key": {
+        "linux": "Alt+B",
         "mac": "Ctrl+B",
         "windows": "Alt+B"
       },
-      "description": "Enter jump mode plus"
+      "description": "Return to the previous tab"
     },
     "utab-search": {
       "suggested_key": {
+        "linux": "Alt+Shift+L",
         "mac": "Ctrl+Shift+L",
         "windows": "Alt+Shift+L"
       },
