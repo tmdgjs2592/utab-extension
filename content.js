@@ -5,6 +5,7 @@ if (typeof window.utabCleanup === "function") {
 if (!window.utabInitialized) {
   window.utabInitialized = true
 
+  const ORIGINAL_FAVICON_ATTR = "data-utab-original-favicon-hrefs"
   let jumpMode = false
   let neg = false
   let prevFocus = null
@@ -40,6 +41,10 @@ if (!window.utabInitialized) {
       if (msg.dataUrl) setFavicon(msg.dataUrl)
     }
 
+    else if (msg.type === "CLEAR_OFFSET") {
+      clearFavicon()
+    }
+
     else if (msg.type === "UTAB_TAB_SEARCH_OPEN") {
       exitMode()
       openTabSearch(msg.items)
@@ -65,6 +70,7 @@ if (!window.utabInitialized) {
   window.addEventListener("keydown", onKeyDown, true)
 
   window.utabCleanup = () => {
+    clearFavicon()
     chrome.runtime.onMessage.removeListener(onMessage)
     window.removeEventListener("keydown", onKeyDown, true)
     clearTimeout(timer)
@@ -79,8 +85,40 @@ if (!window.utabInitialized) {
     restoreFocus()
   }
 
+  let originalFaviconHrefs = null
+
+  function readStoredOriginalFaviconHrefs() {
+    const stored = document.documentElement?.getAttribute(ORIGINAL_FAVICON_ATTR)
+    if (!stored) return []
+
+    try {
+      const parsed = JSON.parse(stored)
+      return Array.isArray(parsed) ? parsed.filter((href) => typeof href === "string" && href) : []
+    } catch {
+      return []
+    }
+  }
+
+  function storeOriginalFaviconHrefs(hrefs) {
+    if (!document.documentElement) return
+    if (!Array.isArray(hrefs) || !hrefs.length) {
+      document.documentElement.removeAttribute(ORIGINAL_FAVICON_ATTR)
+      return
+    }
+
+    document.documentElement.setAttribute(ORIGINAL_FAVICON_ATTR, JSON.stringify(hrefs))
+  }
+
   function setFavicon(href) {
     if (!document.head) return
+
+    if (!originalFaviconHrefs) {
+      originalFaviconHrefs = readStoredOriginalFaviconHrefs()
+      if (!originalFaviconHrefs.length) {
+        originalFaviconHrefs = Array.from(document.querySelectorAll('link[rel~="icon"]')).map(el => el.href)
+      }
+      storeOriginalFaviconHrefs(originalFaviconHrefs)
+    }
 
     document.querySelectorAll('link[rel~="icon"]').forEach(el => el.remove())
 
@@ -88,7 +126,23 @@ if (!window.utabInitialized) {
     link.rel = "icon"
     link.type = "image/png"
     link.href = href
+    link.dataset.utabInjected = "true"
     document.head.appendChild(link)
+  }
+
+  function clearFavicon() {
+    document.querySelectorAll('link[data-utab-injected="true"]').forEach(el => el.remove())
+    const storedOriginalFaviconHrefs = originalFaviconHrefs?.length ? originalFaviconHrefs : readStoredOriginalFaviconHrefs()
+    if (storedOriginalFaviconHrefs.length && document.head) {
+      storedOriginalFaviconHrefs.forEach(href => {
+        const link = document.createElement("link")
+        link.rel = "icon"
+        link.href = href
+        document.head.appendChild(link)
+      })
+    }
+    originalFaviconHrefs = null
+    storeOriginalFaviconHrefs([])
   }
 
   function stealFocusFromPageControls() {
@@ -101,7 +155,7 @@ if (!window.utabInitialized) {
     const trap = document.createElement("div")
     trap.tabIndex = -1
     trap.setAttribute("aria-hidden", "true")
-    trap.style.cssText = "position:fixed; width:1px; height:1px; left:-9999px; top:-9999px;"
+    trap.style.cssText = "position:fixed; width:1px; height:1px; left:-9999px; top:-9999px; outline: none;"
     document.documentElement.appendChild(trap)
     trap.focus({ preventScroll: true })
 
