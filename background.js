@@ -2,6 +2,7 @@ import { KEY_SEQUENCE, OFFSET_EVENTS } from "./lib/constants.js";
 import { initPreferences, applyOverlayPreferences, getOverlayEnabled } from "./lib/preferences.js";
 import { clearCaches, handleJumpMessage, handleTabSearchActivate, handleJumpModeCommand, handleJumpBackCommand, handleTabActivated, handleWindowFocusChanged, initJumpBackTracking, invalidateJumpBackOnRemove, scheduleUpdate, updateAll } from "./lib/navigation.js";
 import { openTabSearch } from "./lib/search.js";
+import { isRestrictedUrl } from "./lib/utils.js";
 
 const overlayPreferencesReady = initPreferences();
 
@@ -109,7 +110,7 @@ function clearAllOffsets() {
     for (const t of tabs) {
       if (!t.id) continue;
       chrome.tabs.sendMessage(t.id, { type: "CLEAR_OFFSET" }).catch(() => {});
-      if (!t.url || /^(chrome|edge|about|chrome-extension):/i.test(t.url)) continue;
+      if (!t.url || isRestrictedUrl(t.url)) continue;
       chrome.scripting.executeScript({
         target: { tabId: t.id },
         func: clearInjectedOffsetFavicon
