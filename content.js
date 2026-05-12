@@ -24,7 +24,7 @@ if (!window.utabInitialized) {
     prevFocus: null
   }
 
-  const onMessage = (msg) => {
+  const onMessage = (msg, _sender, sendResponse) => {
     if (!msg?.type) return
 
     if (msg.type === "UTAB_JUMP_MODE") {
@@ -48,6 +48,10 @@ if (!window.utabInitialized) {
     else if (msg.type === "UTAB_TAB_SEARCH_OPEN") {
       exitMode()
       openTabSearch(msg.items)
+    }
+
+    else if (msg.type === "UTAB_GET_FAVICON_SOURCE") {
+      sendResponse({ href: getOriginalFaviconHref() })
     }
   }
 
@@ -87,6 +91,22 @@ if (!window.utabInitialized) {
 
   let originalFaviconHrefs = null
 
+  function getOriginalFaviconHref() {
+    const storedOriginalFaviconHrefs = originalFaviconHrefs?.length
+      ? originalFaviconHrefs
+      : readStoredOriginalFaviconHrefs()
+
+    if (storedOriginalFaviconHrefs.length) {
+      return storedOriginalFaviconHrefs[0]
+    }
+
+    const current = Array.from(document.querySelectorAll('link[rel~="icon"]'))
+      .map((element) => element.href)
+      .find((href) => typeof href === "string" && href && !href.startsWith("data:"))
+
+    return current || ""
+  }
+
   function readStoredOriginalFaviconHrefs() {
     const stored = document.documentElement?.getAttribute(ORIGINAL_FAVICON_ATTR)
     if (!stored) return []
@@ -118,6 +138,15 @@ if (!window.utabInitialized) {
         originalFaviconHrefs = Array.from(document.querySelectorAll('link[rel~="icon"]')).map(el => el.href)
       }
       storeOriginalFaviconHrefs(originalFaviconHrefs)
+    }
+
+    const existing = document.querySelector('link[data-utab-injected="true"]')
+    if (existing) {
+      if (existing.href !== href) {
+        existing.href = href
+      }
+      document.querySelectorAll('link[rel~="icon"]:not([data-utab-injected="true"])').forEach(el => el.remove())
+      return
     }
 
     document.querySelectorAll('link[rel~="icon"]').forEach(el => el.remove())
