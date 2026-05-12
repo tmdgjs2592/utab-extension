@@ -1,6 +1,6 @@
 import { KEY_SEQUENCE, OFFSET_EVENTS } from "./lib/constants.js";
 import { initPreferences, applyOverlayPreferences, getOverlayEnabled } from "./lib/preferences.js";
-import { clearCaches, handleJumpMessage, handleTabSearchActivate, handleJumpModeCommand, handleJumpBackCommand, invalidateJumpBackOnRemove, scheduleUpdate, updateAll } from "./lib/navigation.js";
+import { clearCaches, handleJumpMessage, handleTabSearchActivate, handleJumpModeCommand, handleJumpBackCommand, handleTabActivated, handleWindowFocusChanged, initJumpBackTracking, invalidateJumpBackOnRemove, scheduleUpdate, updateAll } from "./lib/navigation.js";
 import { openTabSearch } from "./lib/search.js";
 
 const overlayPreferencesReady = initPreferences();
@@ -12,7 +12,7 @@ async function ensureOffscreenDocument() {
       if (contexts.length > 0) return;
     }
     await chrome.offscreen.createDocument({
-      url: "offscreen.html",
+      url: "offscreen/offscreen.html",
       reasons: ["DOM_PARSER"],
       justification: "Keep service worker responsive for keyboard commands"
     });
@@ -21,6 +21,7 @@ async function ensureOffscreenDocument() {
 
 chrome.runtime.onStartup.addListener(() => {
   ensureOffscreenDocument().catch(() => {});
+  initJumpBackTracking().catch(() => {})
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -65,6 +66,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 })
 
 chrome.tabs.onRemoved.addListener(invalidateJumpBackOnRemove);
+chrome.tabs.onActivated.addListener(handleTabActivated);
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  handleWindowFocusChanged(windowId).catch(() => {})
+});
 
 OFFSET_EVENTS.forEach((event) => event.addListener(() => {
   if (getOverlayEnabled()) {
@@ -74,6 +79,7 @@ OFFSET_EVENTS.forEach((event) => event.addListener(() => {
   }
 }))
 ensureOffscreenDocument().catch(() => {});
+initJumpBackTracking().catch(() => {})
 if (getOverlayEnabled()) {
   scheduleUpdate(() => updateAll(KEY_SEQUENCE))
 } else {
