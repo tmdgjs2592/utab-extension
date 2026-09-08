@@ -342,7 +342,7 @@ if (!window.utabInitialized) {
     const query = searchState.input.value.trim().toLowerCase()
     const tokens = query.split(/\s+/).filter(Boolean)
     const matches = tokens.length
-      ? searchState.items.filter(item => tokens.every(token => item.searchText.includes(token) || item.url.includes(token)))
+      ? searchState.items.filter(item => tokens.every(token => item.searchText.includes(token) || item.url.includes(token) || item.itemType.includes(token)))
       : searchState.items
 
     searchState.filteredItems = matches.slice(0, MAX_SEARCH_RESULTS)
@@ -521,12 +521,16 @@ if (!window.utabInitialized) {
   }
 
   function normalizeSearchItem(item) {
+    const itemType = typeof item?.itemType === "string" && item.itemType
+      ? item.itemType.toLowerCase()
+      : "tab"
+
     const title = typeof item?.title === "string" && item.title.trim()
       ? item.title.trim()
       : "Untitled tab"
 
     return {
-      itemType: item?.itemType || "tab",
+      itemType,
       id: item.id,
       windowId: item.windowId,
       title,

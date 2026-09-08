@@ -1,31 +1,36 @@
-# <img src="content/UTAB_logo_cropped.png" width="75" height="75">
-Productivity boost feature to enhance tab movements. 
+# Utab
 
-Using the shortcut and observing the relative offset, users are able to switch to the desired tab instantly.
+Utab is a keyboard-first Chrome extension for navigating tabs by relative position, searching open tabs and bookmarks, and returning to the previously active tab.
 
-## Commands
-- `Command/Alt + i + offset`: move to the right by offset
+## Features
 
-- `Command/Alt + u + offset`: move to the left by offset
+- Jump left or right by a visible relative offset
+- Return to the previously active tab
+- Search open tabs and bookmarks from the keyboard
+- Render configurable offset badges over tab favicons
+- Keep offsets synchronized as tabs open, close, move, and update
+- Avoid browser-restricted pages safely
+- Offset badge on and off feature
+- Offset badge color & size customization
 
-- `Command/Alt + b`: move back to the previous tab
+## User Manual
 
-- `Command/Alt + Shift + l`: open search bar
+Cmd/Alt + i + number: move n tabs to the right 
 
-## Offset Key Layout
-1 2 3 4 5 6 7 8 9
+Cmd/Alt + u + number: move n tabs to the left
 
-q w e r t y u i o p
+Cmd/Alt + b: jump back to the previous tab
 
-a s d f g h j k l
+Cmd/Alt + shift + l: open tab search panel
 
-z x c v b n m
+## Run locally
 
-## Overlay Icon
-![Screenshot of the Chrome Extension](content/overlay_icon.png)
+1. Clone this repository.
+2. Open `chrome://extensions` in Chrome.
+3. Enable **Developer mode**.
+4. Choose **Load unpacked** and select the repository folder.
+5. Configure shortcuts from `chrome://extensions/shortcuts` if the defaults conflict with existing shortcuts.
 
-## Tab Search
-Move to the desired tab instantly by searching.
+## Usage rights
 
-Also supports bookmarks and google search.
-![Screenshot of Utab search](content/search_bar.png)
+Copyright © 2026 John Lee. All rights reserved.

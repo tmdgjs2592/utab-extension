@@ -1,6 +1,6 @@
-import { KEY_SEQUENCE, OFFSET_EVENTS } from "./lib/constants.js";
+import { KEY_SEQUENCE } from "./lib/constants.js";
 import { initPreferences, applyOverlayPreferences, getOverlayEnabled } from "./lib/preferences.js";
-import { clearCaches, handleJumpMessage, handleTabSearchActivate, handleJumpModeCommand, handleJumpBackCommand, handleTabActivated, handleWindowFocusChanged, initJumpBackTracking, invalidateJumpBackOnRemove, scheduleUpdate, updateAll } from "./lib/navigation.js";
+import { clearCaches, handleJumpMessage, handleTabSearchActivate, handleJumpModeCommand, handleJumpBackCommand, handleTabActivated, handleTabCreated, handleTabUpdated, handleWindowFocusChanged, initJumpBackTracking, invalidateJumpBackOnRemove, scheduleAllUpdate, scheduleTabUpdate, scheduleWindowUpdate } from "./lib/navigation.js";
 import { openTabSearch } from "./lib/search.js";
 import { isRestrictedUrl } from "./lib/utils.js";
 
@@ -45,7 +45,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
   clearCaches()
   if (getOverlayEnabled()) {
-    scheduleUpdate(() => updateAll(KEY_SEQUENCE))
+    scheduleAllUpdate(KEY_SEQUENCE)
   } else {
     clearAllOffsets()
   }
@@ -66,26 +66,42 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true
 })
 
-chrome.tabs.onRemoved.addListener(invalidateJumpBackOnRemove);
-chrome.tabs.onActivated.addListener(handleTabActivated);
+chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+  invalidateJumpBackOnRemove(tabId)
+  if (removeInfo?.isWindowClosing) return
+  refreshWindowOffsetsIfAllowed(removeInfo?.windowId).catch(() => {})
+});
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  handleTabActivated(activeInfo)
+  refreshWindowOffsetsIfAllowed(activeInfo?.windowId).catch(() => {})
+});
+chrome.tabs.onCreated.addListener((tab) => {
+  handleTabCreated(tab)
+  refreshWindowOffsetsIfAllowed(tab?.windowId).catch(() => {})
+});
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!handleTabUpdated(tabId, changeInfo, tab)) return
+  refreshTabOffsetIfAllowed(tabId).catch(() => {})
+});
+chrome.tabs.onMoved.addListener((tabId, moveInfo) => {
+  refreshWindowOffsetsIfAllowed(moveInfo?.windowId).catch(() => {})
+});
+chrome.tabs.onAttached.addListener((tabId, attachInfo) => {
+  refreshWindowOffsetsIfAllowed(attachInfo?.newWindowId).catch(() => {})
+});
+chrome.tabs.onDetached.addListener((tabId, detachInfo) => {
+  refreshWindowOffsetsIfAllowed(detachInfo?.oldWindowId).catch(() => {})
+});
 chrome.windows.onFocusChanged.addListener((windowId) => {
   handleWindowFocusChanged(windowId).catch(() => {})
 });
-
-OFFSET_EVENTS.forEach((event) => event.addListener(() => {
-  if (getOverlayEnabled()) {
-    scheduleUpdate(() => updateAll(KEY_SEQUENCE))
-  } else {
-    clearAllOffsets()
-  }
-}))
 ensureOffscreenDocument().catch(() => {});
 initJumpBackTracking().catch(() => {})
-if (getOverlayEnabled()) {
-  scheduleUpdate(() => updateAll(KEY_SEQUENCE))
-} else {
-  clearAllOffsets()
-}
+refreshAllOffsetsIfAllowed().then((didRefresh) => {
+  if (!didRefresh) {
+    clearAllOffsets()
+  }
+});
 
 async function handleRuntimeMessage(msg, sender) {
   if (msg?.type === "KEEP_ALIVE") {
@@ -103,6 +119,35 @@ async function handleRuntimeMessage(msg, sender) {
   }
 
   return { ok: false, reason: "unknown_message" }
+}
+
+async function refreshAllOffsetsIfAllowed() {
+  return scheduleScopedRefresh(() => {
+    scheduleAllUpdate(KEY_SEQUENCE)
+  })
+}
+
+async function refreshWindowOffsetsIfAllowed(windowId) {
+  if (typeof windowId !== "number") return false
+
+  return scheduleScopedRefresh(() => {
+    scheduleWindowUpdate(windowId, KEY_SEQUENCE)
+  })
+}
+
+async function refreshTabOffsetIfAllowed(tabId) {
+  if (typeof tabId !== "number") return false
+
+  return scheduleScopedRefresh(() => {
+    scheduleTabUpdate(tabId, KEY_SEQUENCE)
+  })
+}
+
+async function scheduleScopedRefresh(scheduleFn) {
+  if (!getOverlayEnabled()) return false
+
+  scheduleFn()
+  return true
 }
 
 function clearAllOffsets() {
